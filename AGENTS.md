@@ -23,7 +23,7 @@
 
 ## 0. 이 저장소는 뮤즈 대시 1 에디터의 포크입니다 (2026-11-15 분기)
 
-* **원본**: `H:\source\repos\muse dash bms editer` (뮤즈 대시 1용). 이 저장소의 git 원격 이름은 **`upstream`** (`H:/local-repos/muse dash bms editer.git`)이며, 분기 시점은 `664f0c8` 입니다. 원본의 수정은 `git fetch upstream` → `git merge upstream/main` 으로 받아옵니다. **에이전트는 커밋·푸시·머지·정리(청소)를 사용자가 직접 시키기 전에는 절대 하지 않고, 먼저 권하지도 않습니다.** **`upstream` 으로 push 하지 마십시오** (원본 에디터 저장소입니다). 이 포크 전용 GitHub 저장소는 https://github.com/magjangin/muse-dash-2-bms-editer-test (공개) 이며, 로컬에 원격으로 연결하는 것과 push 는 사용자가 시킬 때 합니다.
+* **원본**: `H:\source\repos\muse dash bms editer` (뮤즈 대시 1용). 이 저장소의 git 원격 이름은 **`upstream`** (`H:/local-repos/muse dash bms editer.git`)이며, 분기 시점은 `664f0c8` 입니다. 원본의 수정은 `git fetch upstream` → `git merge upstream/main` 으로 받아옵니다. **에이전트는 커밋·푸시·머지·정리(청소)를 사용자가 직접 시키기 전에는 절대 하지 않고, 먼저 권하지도 않습니다.** **`upstream` 으로 push 하지 마십시오** (원본 에디터 저장소입니다). 이 포크 전용 GitHub 저장소는 원격 **`origin`** = https://github.com/magjangin/muse-dash-2-bms-editer-test (공개) 입니다. 원본의 버전 태그(`v0.1.0`~`v0.1.5`, 뮤즈 대시 1 에디터 릴리스)는 `origin` 에 올리지 않았습니다.
 * **원본과 갈라 둔 이름** — 두 에디터를 한 PC 에 같이 깔기 때문에, 같으면 서로 덮어씁니다. 값은 전부 [`Services/AppIdentity.cs`](muse%20dash%20bms%20editer/Services/AppIdentity.cs) 한곳에 모았습니다.
   - 사용자 데이터 폴더 `%LocalAppData%\muse dash 2 bms editer\` (원본: `muse dash bms editer`) — 설정·자동 저장·백업·노트 그림·크래시 기록
   - `.bms` 파일 연결 ProgId `MuseDash2Bms.Chart` (원본: `MuseDashBms.Chart`)
