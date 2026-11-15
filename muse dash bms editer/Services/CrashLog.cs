@@ -13,7 +13,7 @@ public static class CrashLog
 {
     public static string Folder => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "muse dash bms editer",
+        AppIdentity.DataFolderName,
         "logs");
 
     // 쓴 파일의 경로. 쓰지 못했으면 null.

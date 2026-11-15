@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="bms_editer.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="bms editer"
+        Title="muse dash 2 bms editer"
         Icon="/Assets/icon.ico"
         Width="1280" Height="720">
 

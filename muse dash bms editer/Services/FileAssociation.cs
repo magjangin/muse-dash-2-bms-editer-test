@@ -11,7 +11,7 @@ namespace bms_editer.Services;
 // 등록 직후에는 "연결 프로그램" 에서 한 번 골라 줘야 기본값이 바뀔 수 있다.
 public static class FileAssociation
 {
-    public const string ProgId = "MuseDashBms.Chart";
+    public const string ProgId = AppIdentity.FileProgId;
 
     public static readonly string[] Extensions = { ".bms", ".bme", ".bml" };
 
@@ -20,7 +20,7 @@ public static class FileAssociation
     {
         using (var progId = Registry.CurrentUser.CreateSubKey(@"Software\Classes\" + ProgId)!)
         {
-            progId.SetValue("", "Muse Dash BMS 차트");
+            progId.SetValue("", AppIdentity.FileTypeName);
 
             using (var icon = progId.CreateSubKey("DefaultIcon")!)
                 icon.SetValue("", $"\"{exePath}\",0");

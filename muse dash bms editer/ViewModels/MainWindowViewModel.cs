@@ -410,7 +410,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         get
         {
             var name = CurrentFilePath is { } path ? System.IO.Path.GetFileName(path) : "제목 없음";
-            return $"{(IsDirty ? "*" : "")}{name} - bms editer ({EditionLabel})";
+            return $"{(IsDirty ? "*" : "")}{name} - {AppIdentity.DisplayName} ({EditionLabel})";
         }
     }
 

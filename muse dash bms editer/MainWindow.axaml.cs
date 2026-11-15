@@ -54,7 +54,7 @@ public partial class MainWindow : Window
             {
                 var iconFile = MainWindowViewModel.IsPersonalEdition ? "icon_personal.ico" : "icon_release.ico";
 
-                // 어셈블리 이름은 배포 프로필마다 다르다("muse dash bms editer 1" / "… 2").
+                // 어셈블리 이름은 배포 프로필마다 다르다("muse dash 2 bms editer 1" / "… 2").
                 // 이름을 박아 두면 배포본에서만 그림을 못 찾아 1번·2번 아이콘이 안 뜬다.
                 var assemblyName = typeof(MainWindow).Assembly.GetName().Name;
                 var iconUri = new Uri($"avares://{assemblyName}/Assets/{iconFile}");
