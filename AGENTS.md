@@ -29,7 +29,7 @@
   - `.bms` 파일 연결 ProgId `MuseDash2Bms.Chart` (원본: `MuseDashBms.Chart`)
   - exe 이름 `muse dash 2 bms editer 1/2.exe`, 창 제목 `… - muse dash 2 bms editer (1. 개인용)`
 * **일부러 그대로 둔 것**: 프로젝트 폴더·`.csproj`·`.slnx` 이름(`muse dash bms editer`)과 C# 네임스페이스(`bms_editer`). 바꾸면 `upstream` 을 받아올 때마다 모든 파일이 이름 바꾸기 충돌을 냅니다.
-* **아직 원본 그대로인 것**: 앱 아이콘(골드 1 / 블루 2), `README.md`·`docs/` 의 뮤즈 대시 1 설명, `Profiles/*.json` 의 게임 규칙.
+* **아직 원본 그대로인 것**: `README.md`·`docs/` 의 뮤즈 대시 1 설명, `Profiles/*.json` 의 게임 규칙. (앱 아이콘은 뮤즈 대시 2 전용으로 교체됨 — 골드 `1` 개인용 / 블루 `2` 릴리즈용 뱃지 규칙 유지)
 * `note_icons/`(게임 추출 스프라이트)는 git 에서 제외라 복제로는 따라오지 않습니다. 뮤즈 대시 1 그림이므로 뮤즈 대시 2 그림을 따로 뽑아 넣어야 합니다.
 
 ---
