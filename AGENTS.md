@@ -1,27 +1,43 @@
-# Muse Dash BMS Editor — Project Handover & Agent Guide
+# Muse Dash 2 BMS Editor — Project Handover & Agent Guide
 
 > [!CAUTION]
 > ## 🚨 [필수 인수인계 원칙] 가장 중요한 1, 2, 3대 패키징 규칙
 > 본 프로젝트의 유지보수 및 추가 개발 시 **아래 1, 2, 3번 규칙은 어떠한 경우에도 반드시 준수**해야 합니다:
 >
-> 1. **1번: 개인용 바이너리 (`publish/personal/muse dash bms editer 1.exe`)**:
+> 1. **1번: 개인용 바이너리 (`publish/personal/muse dash 2 bms editer 1.exe`)**:
 >    - **에셋 100% 영구 내장 단일 파일**: `EmbedNoteIcons=true` 옵션으로 빌드되어 모든 게임 스프라이트(120여 개 PNG)가 exe 내부에 완전히 임베드된 **순수 단일 실행 파일**입니다.
->    - **외부 폴더 절대 금지**: `publish/personal/` 디렉터리에는 외부 `note_icons/` 폴더를 복사하지 않고 오직 `muse dash bms editer 1.exe` 단 하나만 존재해야 합니다.
+>    - **외부 폴더 절대 금지**: `publish/personal/` 디렉터리에는 외부 `note_icons/` 폴더를 복사하지 않고 오직 `muse dash 2 bms editer 1.exe` 단 하나만 존재해야 합니다.
 >    - **시각적 식별**: 앱/창 아이콘은 **골드 앰버 + 숫자 1 뱃지**(`Assets/icon_personal.ico`), 창 제목 끝에 `(1. 개인용)` 이 자동 표기됩니다.
 >    - **보안 및 저작권**: 게임 저작권 에셋이 내장되어 있으므로 **Git 추적에서 100% 영구 제외**(`.gitignore`)되어 있습니다.
 >
-> 2. **2번: 릴리즈용 바이너리 (`publish/release/muse dash bms editer 2.exe`)**:
+> 2. **2번: 릴리즈용 바이너리 (`publish/release/muse dash 2 bms editer 2.exe`)**:
 >    - **외부 폴더 분리형 패키지**: exe 자체는 에셋이 미내장된 순수 바이너리(`EmbedNoteIcons=false`)이며, **외부 `note_icons/` 폴더가 반드시 함께 있는 구성**입니다.
 >    - **시각적 식별**: 앱/창 아이콘은 **사이언 블루 + 숫자 2 뱃지**(`Assets/icon_release.ico`), 창 제목 끝에 `(2. 릴리즈용)` 이 자동 표기됩니다.
 >    - **용도**: 공개 깃허브 Releases 배포용 또는 외부 에셋 폴더를 직접 관리하는 사용자 대상 패키지입니다.
 >
 > 3. **3번: 퍼블리싱 전 클린 빌드 및 어셈블리명 고정 필수**:
 >    - **사전 삭제 필수**: `.NET Single-File` 환경 특성상 기존 산출물이 남아있는 상태에서 덮어쓰기 빌드를 진행하면 캐시 꼬임 및 매니페스트 불일치가 발생합니다. 퍼블리싱 전 **반드시 대상 폴더의 기존 산출물을 완전 삭제 후 새로 패키징**해야 합니다 (`build_publish.bat`, `build_personal.bat`, `build_release.bat`에 기본 탑재).
->    - **임의 리네임 금지**: 빌드 후 파일 시스템에서 exe 이름을 임의 변경(`Move-Item`)하면 `HostFXR 0x80008092` 크래시가 발생하므로, 반드시 프로필의 `<AssemblyName>`(`muse dash bms editer 1`, `muse dash bms editer 2`)을 통해 컴파일 시점부터 파일명이 결정되도록 유지해야 합니다.
+>    - **임의 리네임 금지**: 빌드 후 파일 시스템에서 exe 이름을 임의 변경(`Move-Item`)하면 `HostFXR 0x80008092` 크래시가 발생하므로, 반드시 프로필의 `<AssemblyName>`(`muse dash 2 bms editer 1`, `muse dash 2 bms editer 2`)을 통해 컴파일 시점부터 파일명이 결정되도록 유지해야 합니다.
+
+---
+
+## 0. 이 저장소는 뮤즈 대시 1 에디터의 포크입니다 (2026-11-15 분기)
+
+* **원본**: `H:\source\repos\muse dash bms editer` (뮤즈 대시 1용). 이 저장소의 git 원격 이름은 **`upstream`** (`H:/local-repos/muse dash bms editer.git`)이며, 분기 시점은 `664f0c8` 입니다. 원본의 수정은 `git fetch upstream` → `git merge upstream/main` 으로 받아옵니다. **에이전트는 커밋·푸시·머지·정리(청소)를 사용자가 직접 시키기 전에는 절대 하지 않고, 먼저 권하지도 않습니다.** **`upstream` 으로 push 하지 마십시오** (원본 에디터 저장소입니다). 이 포크 전용 GitHub 저장소는 https://github.com/magjangin/muse-dash-2-bms-editer-test (공개) 이며, 로컬에 원격으로 연결하는 것과 push 는 사용자가 시킬 때 합니다.
+* **원본과 갈라 둔 이름** — 두 에디터를 한 PC 에 같이 깔기 때문에, 같으면 서로 덮어씁니다. 값은 전부 [`Services/AppIdentity.cs`](muse%20dash%20bms%20editer/Services/AppIdentity.cs) 한곳에 모았습니다.
+  - 사용자 데이터 폴더 `%LocalAppData%\muse dash 2 bms editer\` (원본: `muse dash bms editer`) — 설정·자동 저장·백업·노트 그림·크래시 기록
+  - `.bms` 파일 연결 ProgId `MuseDash2Bms.Chart` (원본: `MuseDashBms.Chart`)
+  - exe 이름 `muse dash 2 bms editer 1/2.exe`, 창 제목 `… - muse dash 2 bms editer (1. 개인용)`
+* **일부러 그대로 둔 것**: 프로젝트 폴더·`.csproj`·`.slnx` 이름(`muse dash bms editer`)과 C# 네임스페이스(`bms_editer`). 바꾸면 `upstream` 을 받아올 때마다 모든 파일이 이름 바꾸기 충돌을 냅니다.
+* **아직 원본 그대로인 것**: 앱 아이콘(골드 1 / 블루 2), `README.md`·`docs/` 의 뮤즈 대시 1 설명, `Profiles/*.json` 의 게임 규칙.
+* `note_icons/`(게임 추출 스프라이트)는 git 에서 제외라 복제로는 따라오지 않습니다. 뮤즈 대시 1 그림이므로 뮤즈 대시 2 그림을 따로 뽑아 넣어야 합니다.
 
 ---
 
 ## 1. 대상 게임 사양 및 환경 고정
+
+> [!WARNING]
+> **뮤즈 대시 2 사양은 아직 확인 전입니다.** 아래는 원본(뮤즈 대시 1) 기준 값입니다. 2026-11-15 현재 이 PC 에 뮤즈 대시 2 설치본이 없고 공개된 차트 포맷 자료도 찾지 못했습니다. 게임을 확보하면 Steam Build ID·고정 방법, Unity 버전·백엔드(Mono/Il2Cpp)·디컴파일 경로, 차트 포맷(채널·노트 종류 표기·홀드 짝 규칙)을 **게임 코드에서 확인해** 이 절을 고치십시오. `GameProfile` 원칙대로 추측으로 채우지 않습니다.
 
 * **대상 게임**: *Muse Dash* (Steam PC / Mobile 포맷 호환)
 * **Unity 버전 & 런타임 백엔드**: Unity 2021+ 기반, **Il2Cpp 백엔드**
@@ -61,7 +77,7 @@ muse dash bms editer/
    - Shift_JIS(CP932), CP949, UTF-8(BOM 유무)를 감지하여 원본 인코딩 그대로 저장합니다.
    - 임시 파일(`.tmp`)에 완전히 작성한 후 교체하는 원자적 교체 및 `.bak` 백업 방식을 적용하여 크래시 발생 시 차트 파일 유실을 방지합니다.
 3. **타임라인 수식 표준**:
-   - 틱(tick) 기반 시간 변환 공식 `time = tick * 240 / bpm`을 [`ChartTimeline.cs`](file:///h:/source/repos/muse%20dash%20bms%20editer/muse%20dash%20bms%20editer/Services/ChartTimeline.cs) 한곳에서 통합 관리하여 변속 구간 및 변박 마디에서도 격자와 재생 위치가 1ms 단위로 일치합니다.
+   - 틱(tick) 기반 시간 변환 공식 `time = tick * 240 / bpm`을 [`ChartTimeline.cs`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/muse%20dash%20bms%20editer/Services/ChartTimeline.cs) 한곳에서 통합 관리하여 변속 구간 및 변박 마디에서도 격자와 재생 위치가 1ms 단위로 일치합니다.
 
 4. **타임라인 렌더링 (재생 중 프레임 유지의 핵심)**:
    - 커서·격자 맞춤 번쩍임·드래그 사각형은 [`TimelineControlBase`](muse%20dash%20bms%20editer/Views/Controls/TimelineControlBase.cs) 의 **겹 컨트롤(`OverlayLayer`)** 이 따로 그립니다. 재생 중에 격자·파형을 다시 기록하지 않기 위해서입니다 (`RenderOverlay` 를 재정의).
@@ -73,7 +89,7 @@ muse dash bms editer/
    - OGG 파형 계산과 노트 그림 읽기도 백그라운드입니다. 노트 그림은 준비되는 대로 교체되므로 잠깐 단색으로 보일 수 있습니다(정상).
 
 6. **자동 저장·복구** ([`AutoSaveStore`](muse%20dash%20bms%20editer/Services/AutoSaveStore.cs), `MainWindowViewModel.AutoSave.cs`):
-   - 사용자 데이터는 전부 `%LocalAppData%\muse dash bms editer\` 아래입니다: `autosave\<세션>\`(60초마다, 최근 5벌), `backups\<차트-해시>\`(저장 전 내용 10세대 + `original.bms`), `settings.json`, `logs\`.
+   - 사용자 데이터는 전부 `%LocalAppData%\muse dash 2 bms editer\` 아래입니다: `autosave\<세션>\`(60초마다, 최근 5벌), `backups\<차트-해시>\`(저장 전 내용 10세대 + `original.bms`), `settings.json`, `logs\`.
    - **자동 저장 내용은 원본 차트 경로를 기준으로 만듭니다.** `BmsWriter` 가 저장 경로 기준으로 키음 상대 경로를 계산하므로, 자동 저장 폴더를 기준으로 쓰면 복구했을 때 키음이 전부 끊깁니다. 읽을 때도 `BmsParser.Parse(파일, 기준 폴더)` 로 같은 기준을 줍니다.
    - 정상 저장·"저장 안 함"이면 지웁니다. **다음 실행에 남아 있는 것은 곧 비정상 종료의 증거**입니다. 다른 창이 쓰는 폴더는 `session.lock` 으로 가립니다(프로세스가 죽으면 OS 가 풀어 줌).
    - `MainWindow.EnableDesktopServices()` 는 **실제 앱 시작(`App`)에서만** 부릅니다. 헤드리스 창 테스트가 사용자의 설정·자동 저장을 건드리면 안 됩니다. 같은 이유로 `AutoSave` 의 기본값은 null 입니다.
@@ -86,8 +102,8 @@ muse dash bms editer/
   - `zz`: 씬 번호 (01~12, 00=공통/오브젝트)
   - `xx`: 노트 종류 (01=보스, 02=하트, 03=음표, 04=씬전환, 05=복선, 15=해머 등)
   - `yy`: 모션 및 방향/속도
-* **탐색 우선순위 ([`NoteIcons.cs`](file:///h:/source/repos/muse%20dash%20bms%20editer/muse%20dash%20bms%20editer/Services/NoteIcons.cs))**:
-  1. 사용자 폴더 (`%LOCALAPPDATA%\muse dash bms editer\note_icons`)
+* **탐색 우선순위 ([`NoteIcons.cs`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/muse%20dash%20bms%20editer/Services/NoteIcons.cs))**:
+  1. 사용자 폴더 (`%LOCALAPPDATA%\muse dash 2 bms editer\note_icons`)
   2. exe 인접 `note_icons/` 폴더 (`AppContext.BaseDirectory/note_icons`)
   3. 현재 작업 디렉터리 (`Directory.GetCurrentDirectory()/note_icons`)
   4. 상위 디렉터리 개발 경로 폴백 (`muse dash bms editer/note_icons`)
@@ -99,7 +115,7 @@ muse dash bms editer/
 
 * ❌ **Single-File exe를 파일 시스템에서 임의로 이름 바꾸기(Move-Item)**:
   - `.NET Single-File` 환경에서 파일명을 사후 변경하면 HostFXR이 번들 매니페스트를 찾지 못해 `2147516562` (0x80008092) 크래시 발생.
-  - 해결: 빌드 프로필(`personal.pubxml`, `release.pubxml`)에 `<AssemblyName>`을 각각 `muse dash bms editer 1`, `muse dash bms editer 2`로 지정하여 .NET SDK가 처음부터 일치된 매니페스트로 빌드하도록 구성.
+  - 해결: 빌드 프로필(`personal.pubxml`, `release.pubxml`)에 `<AssemblyName>`을 각각 `muse dash 2 bms editer 1`, `muse dash 2 bms editer 2`로 지정하여 .NET SDK가 처음부터 일치된 매니페스트로 빌드하도록 구성.
 * ❌ **기존 산출물 덮어쓰기 빌드**:
   - `PublishSingleFile` 환경에서 기존 exe가 남아있는 상태로 덮어쓰기 빌드를 진행할 경우 구버전 매니페스트 캐시나 임베딩 충돌이 발생할 수 있음. 퍼블리싱 전 반드시 기존 파일 삭제 후 재패키징 필요.
 
@@ -110,7 +126,7 @@ muse dash bms editer/
   - 스크롤하면 컨트롤의 `Bounds` 가 바뀌어 Avalonia 가 다시 그립니다. 그러니 뷰포트 여유분(`Overscan`)을 크게 잡아도 스크롤 비용만 늘어납니다.
   - **배경 사각형은 자르면 안 됩니다.** Avalonia 는 그린 자리만 클릭을 받습니다. 배경까지 자르면 아직 안 그린 구간이 클릭되지 않습니다.
 * ❌ **`avares://` 경로에 어셈블리 이름 박기**:
-  - 배포 프로필의 `<AssemblyName>` 이 `muse dash bms editer 1` / `2` 라 고정 이름으로는 배포본에서만 그림을 못 찾았고, `try/catch` 에 묻혀 조용히 기본 아이콘이 떴습니다. `Assembly.GetName().Name` 을 쓰십시오.
+  - 배포 프로필의 `<AssemblyName>` 이 `muse dash 2 bms editer 1` / `2` 라 고정 이름으로는 배포본에서만 그림을 못 찾았고, `try/catch` 에 묻혀 조용히 기본 아이콘이 떴습니다. `Assembly.GetName().Name` 을 쓰십시오.
 
 * ❌ **파형 위에 온셋(어택) 세로선 그리기** (`6c1276f` 에서 제거):
   - 소리는 격자에 맞는데 선은 어긋나 보이는 곡(With 164 BPM)에서 오히려 판단을 흐렸습니다. 다시 그리지 마십시오. 온셋은 ⚡ 오프셋 자동 맞춤(`TryDetectAudioOffsetMs`)의 재료로만 남아 있습니다.
@@ -131,7 +147,7 @@ muse dash bms editer/
 
 | 스크립트 | 대상 파일 | 설명 |
 | :--- | :--- | :--- |
-| **[`build_personal.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_personal.bat)** | [`publish/personal/muse dash bms editer 1.exe`](file:///h:/source/repos/muse%20dash%20bms%20editer/publish/personal/muse%20dash%20bms%20editer%201.exe) | **[1번: 개인용]** 골드 아이콘 + 에셋 100% 내장 단일 exe 패키징 |
-| **[`build_release.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_release.bat)** | [`publish/release/muse dash bms editer 2.exe`](file:///h:/source/repos/muse%20dash%20bms%20editer/publish/release/muse%20dash%20bms%20editer%202.exe) | **[2번: 릴리즈용]** 블루 아이콘 + 외부 `note_icons` 폴더 세트 패키징 |
-| **[`build_publish.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_publish.bat)** | 둘 다 | 기존 산출물 삭제 후 1번과 2번을 순차적으로 클린 패키징 |
-| **[`run_personal.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/run_personal.bat)** | 실행 | 1번 개인용 exe를 바로 실행 (없으면 자동 빌드 후 실행) |
+| **[`build_personal.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/build_personal.bat)** | [`publish/personal/muse dash 2 bms editer 1.exe`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/publish/personal/muse%20dash%202%20bms%20editer%201.exe) | **[1번: 개인용]** 골드 아이콘 + 에셋 100% 내장 단일 exe 패키징 |
+| **[`build_release.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/build_release.bat)** | [`publish/release/muse dash 2 bms editer 2.exe`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/publish/release/muse%20dash%202%20bms%20editer%202.exe) | **[2번: 릴리즈용]** 블루 아이콘 + 외부 `note_icons` 폴더 세트 패키징 |
+| **[`build_publish.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/build_publish.bat)** | 둘 다 | 기존 산출물 삭제 후 1번과 2번을 순차적으로 클린 패키징 |
+| **[`run_personal.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/run_personal.bat)** | 실행 | 1번 개인용 exe를 바로 실행 (없으면 자동 빌드 후 실행) |
