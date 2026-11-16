@@ -61,6 +61,7 @@
 | **[NoteIconImporter.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImporter.cs)** | Spine Support Tool 렌더 폴더에서 게임 노트·보스·하트·음표·씬 전환 PNG 를 찾아 `%LOCALAPPDATA%\muse dash bms editer\note_icons` 에 UID 이름으로 복사합니다. |
 | **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 변환 규칙과 `SceneNoteSpeedResolver` 를 담습니다. |
 | **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | 구간 씬 바꾸기(`SceneKeyResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
+| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash bms editer\settings.json` 에 보관합니다. 차트 내용은 담지 않으며, 못 읽으면 예외 없이 기본값으로 돌아갑니다. 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. |
 
 ### 2-2. 시간축 · 되돌리기
 
@@ -173,10 +174,12 @@ xUnit + Avalonia Headless 입니다. 헤드리스 창은 디스패처 스레드 
 | 묶음 | 파일 |
 | :--- | :--- |
 | 파일 왕복 · 저장 안전 | `BmsRoundTripTests` · `RoundTripCleanlinessTests` · `SaveIntegrityTests`(조건 블록 포함) · `EncodingDetectionTests` · `AudioOffsetTests` |
-| 시간축 · 격자 · 파형 | `ChartTimelineTests` · `GridLineTests` · `WaveformTimeAxisTests` |
+| 시간축 · 격자 · 파형 | `ChartTimelineTests` · `GridLineTests` · `WaveformTimeAxisTests` · `TimelineRenderingTests`(겹 컨트롤·뷰포트) |
+| BPM · 격자 판정 | `IbmscBpmDetectorTests` · `GridFitAdvisorTests` · `GridFitAdviceUiTests` |
+| 자동 저장 · 설정 | `AutoSaveAndSettingsTests` |
 | 편집 · 되돌리기 · 변경 표시 | `NoteEditingTests` · `UndoRedoTests` · `DirtyTrackingTests` |
 | 홀드 짝 | `HoldPairingTests` · `HoldRenderingTests`(픽셀) · `HoldPanelSmokeTests` |
-| 노트 그림 · 씬 · 속도 · 필터 | `NoteIconTests` · `NoteIconImporterTests` · `NoteSpeedTests` · `SceneConvertTests` · `WavSearchTests` · `WavTraitFilterTests` |
+| 노트 그림 · 씬 · 속도 · 필터 | `NoteIconTests` · `NoteIconImporterTests` · `NoteSpeedTests` · `SceneConvertTests` · `WavSearchTests` |
 | 다운믹스 | `DownmixTests` · `DownmixRealChartTests` |
 | 창 · 보조 창 | `WindowSmokeTests` · `UndoUiSmokeTests` · `ControlPanelTests` · `LoadPerformanceTests` |
 | 오디오 · 기타 | `KeySoundPlayerTests` · `PlaybackSpeedAndKeySoundTests` · `FolderMediaTests` |
