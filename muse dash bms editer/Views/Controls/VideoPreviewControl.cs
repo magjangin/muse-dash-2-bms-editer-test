@@ -209,7 +209,7 @@ public sealed class VideoPreviewControl : Control, IDisposable
 
             var userDataFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "bms editer",
+                Services.CrashLog.AppDataFolderName,
                 "WebView2");
 
             var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);

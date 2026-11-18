@@ -68,6 +68,8 @@ public static partial class BmsParser
         RegexOptions.IgnoreCase)]
     private static partial Regex ControlFlowRegex();
 
+    public const int MaxMeasureNumber = 9999;
+
     private static readonly HashSet<string> SupportedChannels = new(StringComparer.OrdinalIgnoreCase)
     {
         "16", "11", "12", "13", "14", "15", "18"
@@ -252,9 +254,9 @@ public static partial class BmsParser
 
             var dataMatch = DataRegex().Match(line);
 
-            // 숫자가 int 범위를 넘는 마디 번호. 줄 하나 때문에 파일 전체를 못 여는 일이 없게 보존줄로 넘긴다.
+            // 숫자가 int 범위나 허용 마디 상한(9999)을 넘는 마디 번호. 줄 하나 때문에 파일 전체를 못 여는 일이 없게 보존줄로 넘긴다.
             var measureNum = 0;
-            if (!dataMatch.Success || !int.TryParse(dataMatch.Groups[1].Value, out measureNum))
+            if (!dataMatch.Success || !int.TryParse(dataMatch.Groups[1].Value, out measureNum) || measureNum > MaxMeasureNumber)
             {
                 // 갈래를 나누는 제어 줄
                 if (ControlFlowRegex().IsMatch(line))

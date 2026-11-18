@@ -314,4 +314,19 @@ public sealed class BmsRoundTripTests : IDisposable
         Assert.Equal(3, result.Header.Player);
         Assert.Equal("8", result.Header.Level);
     }
+
+    [Fact]
+    public void 비정상적으로_큰_마디_번호는_보존줄로_넘기고_마디_수를_폭주시키지_않는다()
+    {
+        var path = WriteChart(string.Join("\r\n",
+            "#BPM 120",
+            "#00111:01",
+            "#99999911:01"));
+
+        var parsed = BmsParser.Parse(path);
+
+        Assert.Equal(32, parsed.MeasureCount);
+        Assert.Single(parsed.Chart.Notes);
+        Assert.Contains(parsed.Chart.PreservedLines, l => l.Text == "#99999911:01");
+    }
 }

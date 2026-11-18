@@ -26,7 +26,7 @@ public static class NoteIconImporter
     // 사용자별 그림 폴더. exe 를 다시 만들어도 남는다.
     public static string UserFolder => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "muse dash bms editer",
+        CrashLog.AppDataFolderName,
         "note_icons");
 
     // 마지막으로 가져온 폴더를 적어 두는 파일. 다음에 같은 폴더를 바로 제안하려고 쓴다.

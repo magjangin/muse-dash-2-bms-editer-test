@@ -215,6 +215,10 @@ public partial class MainWindow
             if (!await vm.LoadOggAsync(first))
                 await ConfirmWindow.ShowMessageAsync(this, $"OGG를 불러오지 못했습니다.\n\n{vm.LastErrorMessage}", "OGG 로드 실패");
         }
+        else if (FolderMedia.VideoExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            vm.LoadVideo(first);
+        }
         else if (string.Equals(extension, ".wav", StringComparison.OrdinalIgnoreCase))
         {
             var wavPaths = paths

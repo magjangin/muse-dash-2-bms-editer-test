@@ -35,4 +35,21 @@ public static class FileAssociation
             key.SetValue("", ProgId);
         }
     }
+
+    // 이 에디터가 등록한 연결만 지운다. 다른 프로그램으로 이미 바뀐 확장자는 건드리지 않는다.
+    [SupportedOSPlatform("windows")]
+    public static void Unregister()
+    {
+        Registry.CurrentUser.DeleteSubKeyTree(@"Software\Classes\" + ProgId, throwOnMissingSubKey: false);
+
+        foreach (var extension in Extensions)
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Classes\" + extension, writable: true);
+            if (key is null)
+                continue;
+
+            if (string.Equals(key.GetValue("") as string, ProgId, StringComparison.Ordinal))
+                key.DeleteValue("", throwOnMissingValue: false);
+        }
+    }
 }

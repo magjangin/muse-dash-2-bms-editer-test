@@ -317,6 +317,27 @@ public partial class MainWindow : Window
                 "연결 등록 완료");
         }
 
+        private async void OnUnregisterFileAssociationClick(object? sender, RoutedEventArgs e)
+        {
+            if (!OperatingSystem.IsWindows())
+                return;
+
+            try
+            {
+                FileAssociation.Unregister();
+            }
+            catch (Exception ex)
+            {
+                await ConfirmWindow.ShowMessageAsync(this, $"연결을 해제하지 못했습니다.\n\n{ex.Message}", "연결 해제 실패");
+                return;
+            }
+
+            await ConfirmWindow.ShowMessageAsync(
+                this,
+                "이 에디터에 등록된 .bms / .bme / .bml 파일 연결을 해제했습니다.",
+                "연결 해제 완료");
+        }
+
         private void OnKeyboardSpeedClick(object? sender, RoutedEventArgs e)
         {
             if (DataContext is MainWindowViewModel vm

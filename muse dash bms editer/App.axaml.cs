@@ -22,14 +22,30 @@ public partial class App : Application
 
     private MainWindow? _mainWindow;
     private bool _isShowingErrorNotice;
+    private long _lastExceptionRecordMs = long.MinValue;
+    internal const long ExceptionRecordCooldownMs = 5000;
+
+    public static bool ShouldRecordUiException(long nowMs, ref long lastRecordMs, long cooldownMs = ExceptionRecordCooldownMs)
+    {
+        if (lastRecordMs != long.MinValue && nowMs - lastRecordMs < cooldownMs)
+            return false;
+
+        lastRecordMs = nowMs;
+        return true;
+    }
 
     // 클릭 처리기 하나에서 난 예외가 앱을 그대로 끄면 저장 안 한 작업이 전부 사라진다.
     // 기록을 남기고 알린 뒤 계속 쓸 수 있게 둔다. 사용자가 그 자리에서 저장할 수 있다.
+    // 재생 타이머 등 반복 루프에서 예외가 연달아 날 때 디스크 저장·로그 폭주를 막기 위해 쿨다운을 둔다.
     private void OnUiThreadException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        e.Handled = true;
+
+        if (!ShouldRecordUiException(System.Environment.TickCount64, ref _lastExceptionRecordMs))
+            return;
+
         var logPath = CrashLog.Write(e.Exception, "UI");
         var saved = EmergencySave?.Invoke() == true;
-        e.Handled = true;
 
         if (_isShowingErrorNotice || _mainWindow is not { IsVisible: true } owner)
             return;

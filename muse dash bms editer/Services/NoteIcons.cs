@@ -130,23 +130,7 @@ public sealed class NoteIconCatalog : IDisposable
     }
 
     // #WAV 에 적힌 글자(경로여도 된다)의 파일명이 여섯 자리 숫자로 시작하면 그 여섯 자리.
-    public static string? UidOf(string wavText)
-    {
-        if (string.IsNullOrWhiteSpace(wavText))
-            return null;
-
-        var name = Path.GetFileName(wavText.Replace('\\', '/'));
-        if (name.Length < 6)
-            return null;
-
-        for (var i = 0; i < 6; i++)
-        {
-            if (name[i] is < '0' or > '9')
-                return null;
-        }
-
-        return name.Substring(0, 6);
-    }
+    public static string? UidOf(string wavText) => SceneUid.Of(wavText);
 
     // 해머(종류 15). 줄이 비스듬하거나 가로로 길게 달려서 줄까지 두면 머리가 작아진다.
     // 속도 2·3 노트(yy 02·03, 05·06 ... 17·18)는 속도 1 노트와 모양이 같다. 속도 1 번호로 돌려준다.

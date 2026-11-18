@@ -280,6 +280,7 @@ public sealed partial class MainWindowViewModel
                 Position = note.Position,
                 WavKey = note.WavKey,
                 Type = note.Type,
+                BranchId = note.BranchId,
             });
         }
 

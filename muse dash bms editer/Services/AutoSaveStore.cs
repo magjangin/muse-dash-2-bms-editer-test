@@ -53,7 +53,7 @@ public sealed class AutoSaveStore : IDisposable
 
     public static string DefaultDataRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "muse dash bms editer");
+        CrashLog.AppDataFolderName);
 
     public string DataRoot { get; }
 
