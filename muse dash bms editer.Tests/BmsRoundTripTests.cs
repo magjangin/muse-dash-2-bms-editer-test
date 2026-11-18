@@ -329,4 +329,18 @@ public sealed class BmsRoundTripTests : IDisposable
         Assert.Single(parsed.Chart.Notes);
         Assert.Contains(parsed.Chart.PreservedLines, l => l.Text == "#99999911:01");
     }
+
+    [Fact]
+    public void LF_개행_차트를_저장할_때_원본_개행을_유지한다()
+    {
+        var path = WriteChart("#BPM 120\n#WAV01 a.wav\n#00111:01\n");
+
+        var parsed = BmsParser.Parse(path);
+        var output = BmsWriter.Write(
+            parsed.Chart, "", "", "", parsed.Bpm, 0, 2, "", parsed.WavItems, path);
+
+        Assert.Equal("\n", parsed.Chart.NewLine);
+        Assert.DoesNotContain("\r\n", output);
+        Assert.Contains("#00111:01\n", output);
+    }
 }

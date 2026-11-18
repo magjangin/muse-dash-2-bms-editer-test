@@ -27,6 +27,9 @@ public sealed class BmsChart
 
     public int MeasureCount { get; set; } = 32;
 
+    // 원본 파일의 줄바꿈 방식(\r\n 또는 \n). 저장할 때 그대로 되돌려 쓴다.
+    public string NewLine { get; set; } = "\r\n";
+
     // #RANDOM·#IF·#SWITCH 처럼 갈래를 나누는 줄이 파일에 있었는지.
     //
     // 저장은 된다. 노트와 보존줄이 어느 갈래에 속하는지(BranchId)를 들고 있고, BmsWriter 가
@@ -49,6 +52,7 @@ public sealed class BmsChart
         Header.CopyFrom(source.Header);
         Lanes = source.Lanes;
         MeasureCount = source.MeasureCount;
+        NewLine = source.NewLine;
         HasConditionalBlocks = source.HasConditionalBlocks;
 
         Notes.Clear();

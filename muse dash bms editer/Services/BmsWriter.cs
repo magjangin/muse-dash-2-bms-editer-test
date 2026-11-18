@@ -25,33 +25,34 @@ public static class BmsWriter
         string outputFilePath)
     {
         var sb = new StringBuilder();
+        var nl = string.IsNullOrEmpty(chart.NewLine) ? "\r\n" : chart.NewLine;
 
         // 값이 빈 헤더는 아예 쓰지 않는다.
         // 예전에는 무조건 다 써서, 세 줄짜리 차트를 열었다 저장하면 원본에 없던
         // `#TITLE `·`#GENRE `·`#PLAYLEVEL ` 같은 빈 줄이 붙어 열한 줄이 됐다.
-        AppendIfPresent(sb, "#TITLE", title);
-        AppendIfPresent(sb, "#ARTIST", artist);
-        AppendIfPresent(sb, "#GENRE", genre);
+        AppendIfPresent(sb, "#TITLE", title, nl);
+        AppendIfPresent(sb, "#ARTIST", artist, nl);
+        AppendIfPresent(sb, "#GENRE", genre, nl);
 
         // BPM·PLAYER·RANK 는 재생에 반드시 필요한 값이라 비어 있을 수 없다. 늘 쓴다.
-        sb.Append("#BPM ").AppendLine(bpm.ToString("0.######", CultureInfo.InvariantCulture));
-        sb.Append("#PLAYER ").AppendLine((player + 1).ToString(CultureInfo.InvariantCulture));
-        sb.Append("#RANK ").AppendLine(rank.ToString(CultureInfo.InvariantCulture));
+        sb.Append("#BPM ").Append(bpm.ToString("0.######", CultureInfo.InvariantCulture)).Append(nl);
+        sb.Append("#PLAYER ").Append((player + 1).ToString(CultureInfo.InvariantCulture)).Append(nl);
+        sb.Append("#RANK ").Append(rank.ToString(CultureInfo.InvariantCulture)).Append(nl);
 
-        AppendIfPresent(sb, "#PLAYLEVEL", level);
+        AppendIfPresent(sb, "#PLAYLEVEL", level, nl);
 
         if (Math.Abs(chart.Header.AudioOffsetMs) > 1e-4)
-            sb.Append("#BMSEDITER_OFFSET ").AppendLine(chart.Header.AudioOffsetMs.ToString("0.####", CultureInfo.InvariantCulture));
+            sb.Append("#BMSEDITER_OFFSET ").Append(chart.Header.AudioOffsetMs.ToString("0.####", CultureInfo.InvariantCulture)).Append(nl);
 
         // 에디터가 다루지 않는 헤더(#TOTAL, #STAGEFILE, #BPMxx, #STOPxx, #BMPxx 등)를
         // 읽어들인 원문 그대로 되돌려 놓는다. 없으면 저장할 때마다 사라진다.
         foreach (var raw in chart.PreservedLines)
         {
             if (!raw.IsData)
-                sb.AppendLine(raw.Text);
+                sb.Append(raw.Text).Append(nl);
         }
 
-        sb.AppendLine();
+        sb.Append(nl);
 
         var keyWidth = ComputeKeyWidth(chart, wavItems);
         var emptySlot = new string('0', keyWidth);
@@ -70,9 +71,9 @@ public static class BmsWriter
         foreach (var wav in uniqueWavItems)
         {
             var key = wav.Key.PadLeft(keyWidth, '0');
-            sb.Append("#WAV").Append(key).Append(' ').AppendLine(ResolveOutputPath(wav, outputDirectory));
+            sb.Append("#WAV").Append(key).Append(' ').Append(ResolveOutputPath(wav, outputDirectory)).Append(nl);
         }
-        sb.AppendLine();
+        sb.Append(nl);
 
         var laneOrder = BuildLaneOrder(chart.Lanes);
 
@@ -174,7 +175,7 @@ public static class BmsWriter
         foreach (var entry in dataLines.OrderBy(d => d.Measure).ThenBy(d => d.Order))
         {
             foreach (var line in entry.Lines)
-                sb.AppendLine(line);
+                sb.Append(line).Append(nl);
         }
 
         return sb.ToString();
@@ -248,12 +249,12 @@ public static class BmsWriter
         return opener >= 0 ? opener + 0.5 : int.MaxValue;
     }
 
-    private static void AppendIfPresent(StringBuilder sb, string tag, string value)
+    private static void AppendIfPresent(StringBuilder sb, string tag, string value, string nl)
     {
         if (string.IsNullOrWhiteSpace(value))
             return;
 
-        sb.Append(tag).Append(' ').AppendLine(value);
+        sb.Append(tag).Append(' ').Append(value).Append(nl);
     }
 
     // 키 자릿수는 #WAV 테이블과 노트 키 **양쪽**의 최대 길이로 잡는다.

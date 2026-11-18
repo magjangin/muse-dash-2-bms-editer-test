@@ -12,6 +12,10 @@ public partial class App : Application
     // 탐색기에서 BMS 파일을 더블클릭해 실행됐을 때 그 파일 경로. Program.Main 이 채운다.
     public static string? StartupFilePath { get; set; }
 
+    public static event System.Action<string?>? ExternalOpenRequested;
+
+    public static void RaiseExternalOpenRequested(string? filePath) => ExternalOpenRequested?.Invoke(filePath);
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

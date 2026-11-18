@@ -41,6 +41,22 @@ public partial class MainWindow
         AddHandler(DragDrop.DropEvent, OnWindowDrop);
 
         Activated += OnWindowActivated;
+        App.ExternalOpenRequested += OnExternalOpenRequested;
+        Closed += (_, _) => App.ExternalOpenRequested -= OnExternalOpenRequested;
+    }
+
+    private void OnExternalOpenRequested(string? filePath)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
+
+            Activate();
+
+            if (!string.IsNullOrWhiteSpace(filePath))
+                await OpenExternalFileAsync(filePath);
+        });
     }
 
     // 창이 뜬 직후 한 번. 복구를 먼저 묻고, 복구하지 않았을 때만 실행 인자의 파일을 연다.

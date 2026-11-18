@@ -68,14 +68,28 @@ public sealed class VideoPreviewControl : Control, IDisposable
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _disposed = false;
         LayoutUpdated += OnLayoutUpdated;
-        _ = EnsureWebViewAsync();
+        _ = ReattachAsync();
+    }
+
+    private async Task ReattachAsync()
+    {
+        await EnsureWebViewAsync();
+        if (_disposed || !_hasVideo || _pendingVideoPath is not { } path || _webView is null)
+            return;
+
+        MapVideoFolder(path);
+        _webView.NavigateToString(BuildVideoHtml(path, _lastRequestedSeconds));
+        UpdateBounds();
+        PauseAt(_lastRequestedSeconds);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         LayoutUpdated -= OnLayoutUpdated;
         Dispose();
+        _initializationTask = null;
         base.OnDetachedFromVisualTree(e);
     }
 
