@@ -1,16 +1,24 @@
-# 🎵 Muse Dash BMS Editer
-
-**뮤즈 대시(Muse Dash) 커스텀 채보를 BMS 파일로 만들기 위한 전용 에디터입니다.**
+<div align="center">
+  <img src="muse%20dash%20bms%20editer/Assets/icon.png" alt="Muse Dash 2 BMS Editer Icon" width="128" />
+  <h1>🎵 Muse Dash 2 BMS Editer</h1>
+  <p><strong>뮤즈 대시 2(Muse Dash 2) 커스텀 채보를 BMS 파일로 만들기 위한 전용 에디터입니다.</strong></p>
+</div>
 
 음원 파형을 보면서 노트를 찍고, 뮤즈 대시 규칙에 맞게 저장합니다.
 일반 BMS 에디터로는 보이지 않는 **홀드·샌드백 짝**을 게임을 켜기 전에 잡아 주고,
-인터넷에 있는 **건반 BMS(4K/5K/7K)를 뮤즈 대시 두 레인으로 자동 변환**해 리듬 뼈대를 한 번에 깔아 줍니다.
+인터넷에 있는 **건반 BMS(4K/5K/7K)를 두 레인으로 자동 변환**해 리듬 뼈대를 한 번에 깔아 줍니다.
 
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
 ![Avalonia 12](https://img.shields.io/badge/Avalonia_UI-12-8B44AC)
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D4)
-![version](https://img.shields.io/badge/version-0.1.4-lightgrey)
-![status](https://img.shields.io/badge/status-testing-orange)
+![version](https://img.shields.io/badge/version-0.2.0-blue)
+![target](https://img.shields.io/badge/target-Muse_Dash_2-ff4081)
+![status](https://img.shields.io/badge/status-fork_preparing-orange)
+
+> [!IMPORTANT]
+> **뮤즈 대시 1 에디터에서 분기한 뮤즈 대시 2 전용 포크입니다.**
+> - 2026-11-15 현재 **뮤즈 대시 2 사양 확인 전**이므로, 채보 규칙(`Profiles/*.json`)과 `docs/` 가이드는 뮤즈 대시 1 기준을 바탕으로 두고 있습니다. 게임 확보 후 실제 차트 포맷(채널·노트 표기·홀드 짝 규칙)을 확인해 순차적으로 반영할 예정입니다.
+> - 기존 **뮤즈 대시 1 에디터와 같은 PC에 함께 설치해도 충돌하지 않도록** 사용자 데이터 폴더(`%LOCALAPPDATA%\muse dash 2 bms editer\`), `.bms` 파일 연결(`MuseDash2Bms.Chart`), 실행 파일 이름(`muse dash 2 bms editer 1/2.exe`), 앱 아이콘을 모두 분리했습니다.
 
 > [!NOTE]
 > **테스트 단계의 비공식 팬 제작 도구입니다.** 채보를 만들고 저장하는 데까지는 동작하지만,
@@ -161,10 +169,10 @@ dotnet test "muse dash bms editer.slnx"
 .\build_publish.bat
 
 # 또는 프로필별 개별 배포:
-# 1) 1번 개인용 exe (골드 아이콘, 에셋 100% 내장 단일 exe) → publish/personal/muse dash bms editer 1.exe
+# 1) 1번 개인용 exe (골드 아이콘, 에셋 100% 내장 단일 exe) → publish/personal/muse dash 2 bms editer 1.exe
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=personal
 
-# 2) 2번 릴리즈용 exe (블루 아이콘, 에셋 폴더 분리형 패키지) → publish/release/muse dash bms editer 2.exe
+# 2) 2번 릴리즈용 exe (블루 아이콘, 에셋 폴더 분리형 패키지) → publish/release/muse dash 2 bms editer 2.exe
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=release
 ```
 
@@ -179,7 +187,7 @@ dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProf
   이후 다운믹스·짝 검사·되돌리기·노트 그림이 들어간 뒤에는 479노트 채보에 약 2시간이 걸렸습니다(2026-10-19 실측 → [채보 작성 시간](docs/issues/authoring_time.md)).
 - **노트 그림은 배포본에 들어 있지 않습니다.** 게임에서 뽑은 그림이라 저장소와 배포본에 넣지 않았고, 없으면 단색 동그라미로 보입니다.
   그림은 직접 만들어야 합니다: [Spine Support Tool](https://github.com/magjangin/spine-support-tool)로 게임 번들에서 노트·보스를 렌더한 뒤,
-  에디터의 **편집 → 노트 그림 가져오기...** 에서 그 렌더 폴더를 고르면 `%LOCALAPPDATA%\muse dash bms editer\note_icons` 에 자동으로 만들어집니다.
+  에디터의 **편집 → 노트 그림 가져오기...** 에서 그 렌더 폴더를 고르면 `%LOCALAPPDATA%\muse dash 2 bms editer\note_icons` 에 자동으로 만들어집니다.
   (뮤즈 대시를 가지고 있어야 하고, 만든 그림은 개인 용도로만 쓰세요.)
 - **다운믹스 결과는 리듬 뼈대입니다.** 건반 BMS에는 뮤즈 대시 노트 종류 정보가 없어서, 종류는 사람이 얹어야 합니다.
   변환은 실제 차트 20곡으로 확인했지만, 그 결과로 한 곡을 끝까지 완성해 게임에서 플레이해 본 적은 아직 없습니다.

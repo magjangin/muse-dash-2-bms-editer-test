@@ -26,10 +26,10 @@
 * **원본**: `H:\source\repos\muse dash bms editer` (뮤즈 대시 1용). 이 저장소의 git 원격 이름은 **`upstream`** (`H:/local-repos/muse dash bms editer.git`)이며, 분기 시점은 `664f0c8` 입니다. 원본의 수정은 `git fetch upstream` → `git merge upstream/main` 으로 받아옵니다. **에이전트는 커밋·푸시·머지·정리(청소)를 사용자가 직접 시키기 전에는 절대 하지 않고, 먼저 권하지도 않습니다.** **`upstream` 으로 push 하지 마십시오** (원본 에디터 저장소입니다). 이 포크 전용 GitHub 저장소는 원격 **`origin`** = https://github.com/magjangin/muse-dash-2-bms-editer-test (공개) 입니다. 원본의 버전 태그(`v0.1.0`~`v0.1.5`, 뮤즈 대시 1 에디터 릴리스)는 `origin` 에 올리지 않았습니다.
 * **원본과 갈라 둔 이름** — 두 에디터를 한 PC 에 같이 깔기 때문에, 같으면 서로 덮어씁니다. 값은 전부 [`Services/AppIdentity.cs`](muse%20dash%20bms%20editer/Services/AppIdentity.cs) 한곳에 모았습니다.
   - 사용자 데이터 폴더 `%LocalAppData%\muse dash 2 bms editer\` (원본: `muse dash bms editer`) — 설정·자동 저장·백업·노트 그림·크래시 기록
-  - `.bms` 파일 연결 ProgId `MuseDash2Bms.Chart` (원본: `MuseDashBms.Chart`)
+  - `.bms` 파일 연결 ProgId `MuseDash2Bms.Chart` (원본: `MuseDashBms.Chart`) — `OpenWithProgids` 에 등록하며 기존 기본값을 덮어쓰지 않음
   - exe 이름 `muse dash 2 bms editer 1/2.exe`, 창 제목 `… - muse dash 2 bms editer (1. 개인용)`
 * **일부러 그대로 둔 것**: 프로젝트 폴더·`.csproj`·`.slnx` 이름(`muse dash bms editer`)과 C# 네임스페이스(`bms_editer`). 바꾸면 `upstream` 을 받아올 때마다 모든 파일이 이름 바꾸기 충돌을 냅니다.
-* **아직 원본 그대로인 것**: `README.md`·`docs/` 의 뮤즈 대시 1 설명, `Profiles/*.json` 의 게임 규칙. (앱 아이콘은 뮤즈 대시 2 전용으로 교체됨 — 골드 `1` 개인용 / 블루 `2` 릴리즈용 뱃지 규칙 유지)
+* **아직 원본 그대로인 것**: `docs/` 의 뮤즈 대시 1 설명, `Profiles/*.json` 의 게임 규칙. (앱 아이콘과 `README.md` 는 뮤즈 대시 2 전용으로 갱신됨 — 골드 `1` 개인용 / 블루 `2` 릴리즈용 뱃지 규칙 유지)
 * `note_icons/`(게임 추출 스프라이트)는 git 에서 제외라 복제로는 따라오지 않습니다. 뮤즈 대시 1 그림이므로 뮤즈 대시 2 그림을 따로 뽑아 넣어야 합니다.
 
 ---

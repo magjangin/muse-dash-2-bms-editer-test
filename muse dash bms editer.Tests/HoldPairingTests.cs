@@ -64,7 +64,7 @@ public sealed class HoldPairingTests
         var profile = Profile;
 
         Assert.Equal("뮤즈 대시", profile.DisplayName);
-        Assert.Equal(ProfileVerification.Playtested, profile.Verification);
+        Assert.Equal(ProfileVerification.Assumed, profile.Verification);
 
         var kinds = profile.HoldRules.Select(r => r.Kind).ToArray();
         Assert.Equal(new[] { "Hold", "Sandbag" }, kinds);

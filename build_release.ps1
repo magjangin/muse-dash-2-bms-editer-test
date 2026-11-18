@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host " [2번: 릴리즈용] Muse Dash 2 BMS Editor 패키징 (폴더 분리형)" -ForegroundColor Cyan
@@ -10,14 +10,18 @@ $exePath = Join-Path $targetDir "muse dash 2 bms editer 2.exe"
 # 1. 기존 폴더 내용 정리
 if (Test-Path $targetDir) {
     Write-Host "[정리] 기존 릴리즈 폴더 내용 정리 중..." -ForegroundColor Gray
-    Get-ChildItem -Path $targetDir -Recurse | Remove-Item -Recurse -Force
+    Remove-Item -Path $targetDir -Recurse -Force
 }
 
 # 2. 2번 릴리즈 빌드 실행 (EmbedNoteIcons=false, AssemblyName="muse dash 2 bms editer 2")
 Write-Host "[빌드] 2번 릴리즈 exe (에셋 미내장 + 2번 블루 아이콘) 패키징 중..." -ForegroundColor Yellow
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=release
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "릴리즈용 exe 빌드 실패!"
+    throw "릴리즈용 exe 빌드 실패!"
+}
+
+if (-not (Test-Path $exePath)) {
+    throw "검증 실패: $exePath 가 생성되지 않았습니다."
 }
 
 # 3. 외부 note_icons 폴더 배치 ("그 폴더가 있는 exe" 구성)
