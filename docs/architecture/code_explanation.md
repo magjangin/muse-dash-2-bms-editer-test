@@ -57,6 +57,7 @@
 | **[WavKey.cs](../../muse%20dash%20bms%20editer/Services/WavKey.cs)** | base-36 키음 번호(`01`~`ZZ`, `001`~`ZZZ`)의 파싱 · 서식 · 자릿수 규칙을 한 곳에 둡니다. |
 | **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 연결하고, 명령줄 인자로 받은 차트 경로를 엽니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). 메뉴의 "탐색기에서 BMS 파일 연결 해제" 가 부릅니다. |
 | **[ShellNotify.cs](../../muse%20dash%20bms%20editer/Services/ShellNotify.cs)** | 파일 저장 및 확장자 연결 변경 시 Windows 탐색기에 `SHChangeNotify` 로 알립니다. |
+| **[NoteIconImage.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImage.cs)** | `NoteIcons.cs` 에서 분리한 그림 다듬기(그림자 제거 · 여백 자르기 · 해머 줄 제거와 세우기)입니다. 순수 픽셀 계산이라 카탈로그와 따로 둡니다. |
 | **[NoteIcons.cs](../../muse%20dash%20bms%20editer/Services/NoteIcons.cs)** | `#WAV` 파일명 앞 6자리 UID 에 대응하는 노트 아이콘(`note_icons/<UID>.png`)을 읽고, 그림자 제거·여백 자르기를 거쳐 크기별로 캐시합니다. 속도 2·3(`yy`)도 속도 1 아이콘·방향·배율로 매핑하며, 속도별 그림이 없으면 속도 1 비트맵을 **같이 씁니다**(해제할 때 중복을 걸러 한 번만 `Dispose`). 씬 전환(`0004yy`)에는 방향을 붙이지 않습니다. |
 | **[NoteIconImporter.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImporter.cs)** | Spine Support Tool 렌더 폴더에서 게임 노트·보스·하트·음표·씬 전환 PNG 를 찾아 `%LOCALAPPDATA%\muse dash bms editer\note_icons` 에 UID 이름으로 복사합니다. |
 | **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 변환 규칙과 `SceneNoteSpeedResolver` 를 담습니다. |
@@ -154,6 +155,17 @@
 | **[NoteSearchWindow.axaml / .cs](../../muse%20dash%20bms%20editer/Views/NoteSearchWindow.axaml)** | 🧰 검색 / 삭제 / 교체 창(모드리스)입니다. Esc 로 닫힙니다. |
 | **[NoteStatsWindow.axaml / .cs](../../muse%20dash%20bms%20editer/Views/NoteStatsWindow.axaml)** | 📊 통계 창(모드리스, 보기 전용)입니다. |
 | **[WavPaletteWindow.axaml / .cs](../../muse%20dash%20bms%20editer/Views/WavPaletteWindow.axaml)** | 🎨 키음 팔레트 창(모드리스)입니다. 여러 WAV 를 한 번에 추가할 수 있습니다. |
+
+`MainWindow` 코드비하인드는 역할별 partial 파일 6개로 나뉘어 있습니다(동작은 그대로, 한 파일이 1,100줄이던 것을 쪼갰습니다).
+
+| 파일 | 맡은 일 |
+| :--- | :--- |
+| `MainWindow.axaml.cs` | 생성자 · 뷰모델 연결 · 창 닫기 확인 · 뷰모델 속성 변화에 따른 격자 방향·스크롤·재생 커서 따라가기 |
+| `MainWindow.Files.cs` | 열기 · 저장 · 폴더/음원/영상 불러오기 · 건반 BMS 가져오기 · 키음 추가 · 파일 연결 |
+| `MainWindow.Keyboard.cs` | 단축키 (터널 단계 Space, Ctrl 조합, 격자 편집 키, 한 키 단축키) |
+| `MainWindow.Tools.cs` | 모드리스 보조 창(검색·통계·컨트롤 패널·키음 팔레트) 띄우기, 노트 그림 가져오기 |
+| `MainWindow.Scrub.cs` | 파형·격자 위 마우스 스크럽, 재생 중 클릭으로 멈추기 |
+| `MainWindow.Desktop.cs` | 실제 앱에서만 켜는 서비스(설정·자동 저장·끌어다 놓기·단일 인스턴스 수신·외부 변경 감지) |
 
 ---
 
