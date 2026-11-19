@@ -54,8 +54,11 @@ public partial class MainWindow
 
             Activate();
 
-            if (!string.IsNullOrWhiteSpace(filePath))
-                await OpenExternalFileAsync(filePath);
+            // 이미 작업 중인 창이므로 저장 안 한 내용이 있으면 확인을 받는다(실행 직후 인자 열기와 다르다).
+            if (!string.IsNullOrWhiteSpace(filePath)
+                && FolderMedia.ChartExtensions.Contains(Path.GetExtension(filePath), StringComparer.OrdinalIgnoreCase)
+                && DataContext is MainWindowViewModel vm)
+                await OpenChartPathAsync(vm, filePath);
         });
     }
 
