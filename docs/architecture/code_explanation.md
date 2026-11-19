@@ -55,12 +55,12 @@
 | **[SafeFileWriter.cs](../../muse%20dash%20bms%20editer/Services/SafeFileWriter.cs)** | 같은 폴더의 임시 파일에 끝까지 쓴 뒤에만 원본과 바꿔치기합니다(`File.Replace`). 직전 내용은 `.bak` 으로 남고, `Replace` 를 못 쓰는 드라이브에서는 `Move(overwrite)` 로 물러납니다. |
 | **[FolderMedia.cs](../../muse%20dash%20bms%20editer/Services/FolderMedia.cs)** | 곡 폴더에서 차트 · 음원(OGG) · 영상을 고르는 규칙입니다. 폴더 이름과 같은 파일이 있으면 그것, 없으면 이름순 첫 번째. 폴더 열기와 건반 BMS 가져오기가 같이 씁니다. |
 | **[WavKey.cs](../../muse%20dash%20bms%20editer/Services/WavKey.cs)** | base-36 키음 번호(`01`~`ZZ`, `001`~`ZZZ`)의 파싱 · 서식 · 자릿수 규칙을 한 곳에 둡니다. |
-| **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 연결하고, 명령줄 인자로 받은 차트 경로를 엽니다. |
+| **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 연결하고, 명령줄 인자로 받은 차트 경로를 엽니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). 메뉴의 "탐색기에서 BMS 파일 연결 해제" 가 부릅니다. |
 | **[ShellNotify.cs](../../muse%20dash%20bms%20editer/Services/ShellNotify.cs)** | 파일 저장 및 확장자 연결 변경 시 Windows 탐색기에 `SHChangeNotify` 로 알립니다. |
 | **[NoteIcons.cs](../../muse%20dash%20bms%20editer/Services/NoteIcons.cs)** | `#WAV` 파일명 앞 6자리 UID 에 대응하는 노트 아이콘(`note_icons/<UID>.png`)을 읽고, 그림자 제거·여백 자르기를 거쳐 크기별로 캐시합니다. 속도 2·3(`yy`)도 속도 1 아이콘·방향·배율로 매핑하며, 속도별 그림이 없으면 속도 1 비트맵을 **같이 씁니다**(해제할 때 중복을 걸러 한 번만 `Dispose`). 씬 전환(`0004yy`)에는 방향을 붙이지 않습니다. |
 | **[NoteIconImporter.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImporter.cs)** | Spine Support Tool 렌더 폴더에서 게임 노트·보스·하트·음표·씬 전환 PNG 를 찾아 `%LOCALAPPDATA%\muse dash bms editer\note_icons` 에 UID 이름으로 복사합니다. |
 | **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 변환 규칙과 `SceneNoteSpeedResolver` 를 담습니다. |
-| **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | 구간 씬 바꾸기(`SceneKeyResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
+| **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | `SceneUid.Of`(파일명 앞 6자리 UID 추출, `NoteIcons.UidOf`·`WavSearch` 가 같이 씀), 구간 씬 바꾸기(`SceneKeyResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
 | **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash bms editer\settings.json` 에 보관합니다. 차트 내용은 담지 않으며, 못 읽으면 예외 없이 기본값으로 돌아갑니다. 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. |
 
 ### 2-2. 시간축 · 되돌리기
@@ -161,7 +161,7 @@
 
 | 파일명 | 역할 |
 | :--- | :--- |
-| **[Program.cs](../../muse%20dash%20bms%20editer/Program.cs)** | Avalonia 앱을 띄웁니다. 처리되지 않은 예외는 `%LocalAppData%\muse dash bms editer\logs\` 에 남깁니다(`Services/CrashLog.cs`). |
+| **[Program.cs](../../muse%20dash%20bms%20editer/Program.cs)** | Avalonia 앱을 띄웁니다. 처리되지 않은 예외는 `%LocalAppData%\muse dash bms editer\logs\` 에 남깁니다(`Services/CrashLog.cs`, 최근 20개만 남기고 오래된 `crash-*.log` 는 지웁니다). **단일 인스턴스**: 이름 있는 뮤텍스(`Local\MuseDashBmsEditer_SingleInstance`)로 이미 떠 있는 창을 찾고, 있으면 명령줄 차트 경로를 이름 있는 파이프(`MuseDashBmsEditer_IpcPipe`)로 넘기고 종료합니다. 받은 쪽은 `App.RaiseExternalOpenRequested` 로 차트를 엽니다. |
 | **[App.axaml / .cs](../../muse%20dash%20bms%20editer/App.axaml)** | Fluent 테마를 걸고 메인 창을 만듭니다. |
 | **[win-x64.pubxml](../../muse%20dash%20bms%20editer/Properties/PublishProfiles/win-x64.pubxml)** | 네이티브 라이브러리까지 exe 하나로 묶는 배포 설정입니다(`-p:PublishProfile=win-x64`). |
 
