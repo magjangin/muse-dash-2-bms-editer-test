@@ -4,20 +4,20 @@
 > ## 🚨 [필수 인수인계 원칙] 가장 중요한 1, 2, 3대 패키징 규칙
 > 본 프로젝트의 유지보수 및 추가 개발 시 **아래 1, 2, 3번 규칙은 어떠한 경우에도 반드시 준수**해야 합니다:
 >
-> 1. **1번: 개인용 바이너리 (`publish/personal/muse dash bms editer 1.exe`)**:
+> 1. **1번: 개인용 바이너리 (`publish/personal/muse dash 1 bms editer 1.exe`)**:
 >    - **에셋 100% 영구 내장 단일 파일**: `EmbedNoteIcons=true` 옵션으로 빌드되어 모든 게임 스프라이트(120여 개 PNG)가 exe 내부에 완전히 임베드된 **순수 단일 실행 파일**입니다.
->    - **외부 폴더 절대 금지**: `publish/personal/` 디렉터리에는 외부 `note_icons/` 폴더를 복사하지 않고 오직 `muse dash bms editer 1.exe` 단 하나만 존재해야 합니다.
+>    - **외부 폴더 절대 금지**: `publish/personal/` 디렉터리에는 외부 `note_icons/` 폴더를 복사하지 않고 오직 `muse dash 1 bms editer 1.exe` 단 하나만 존재해야 합니다.
 >    - **시각적 식별**: 앱/창 아이콘은 **골드 앰버 + 숫자 1 뱃지**(`Assets/icon_personal.ico`), 창 제목 끝에 `(1. 개인용)` 이 자동 표기됩니다.
 >    - **보안 및 저작권**: 게임 저작권 에셋이 내장되어 있으므로 **Git 추적에서 100% 영구 제외**(`.gitignore`)되어 있습니다.
 >
-> 2. **2번: 릴리즈용 바이너리 (`publish/release/muse dash bms editer 2.exe`)**:
+> 2. **2번: 릴리즈용 바이너리 (`publish/release/muse dash 1 bms editer 2.exe`)**:
 >    - **외부 폴더 분리형 패키지**: exe 자체는 에셋이 미내장된 순수 바이너리(`EmbedNoteIcons=false`)이며, **외부 `note_icons/` 폴더가 반드시 함께 있는 구성**입니다.
 >    - **시각적 식별**: 앱/창 아이콘은 **사이언 블루 + 숫자 2 뱃지**(`Assets/icon_release.ico`), 창 제목 끝에 `(2. 릴리즈용)` 이 자동 표기됩니다.
 >    - **용도**: 공개 깃허브 Releases 배포용 또는 외부 에셋 폴더를 직접 관리하는 사용자 대상 패키지입니다.
 >
 > 3. **3번: 퍼블리싱 전 클린 빌드 및 어셈블리명 고정 필수**:
 >    - **사전 삭제 필수**: `.NET Single-File` 환경 특성상 기존 산출물이 남아있는 상태에서 덮어쓰기 빌드를 진행하면 캐시 꼬임 및 매니페스트 불일치가 발생합니다. 퍼블리싱 전 **반드시 대상 폴더의 기존 산출물을 완전 삭제 후 새로 패키징**해야 합니다 (`build_publish.bat`, `build_personal.bat`, `build_release.bat`에 기본 탑재).
->    - **임의 리네임 금지**: 빌드 후 파일 시스템에서 exe 이름을 임의 변경(`Move-Item`)하면 `HostFXR 0x80008092` 크래시가 발생하므로, 반드시 프로필의 `<AssemblyName>`(`muse dash bms editer 1`, `muse dash bms editer 2`)을 통해 컴파일 시점부터 파일명이 결정되도록 유지해야 합니다.
+>    - **임의 리네임 금지**: 빌드 후 파일 시스템에서 exe 이름을 임의 변경(`Move-Item`)하면 `HostFXR 0x80008092` 크래시가 발생하므로, 반드시 프로필의 `<AssemblyName>`(`muse dash 1 bms editer 1`, `muse dash 1 bms editer 2`)을 통해 컴파일 시점부터 파일명이 결정되도록 유지해야 합니다.
 
 ---
 
@@ -104,7 +104,7 @@ muse dash bms editer/
 
 * ❌ **Single-File exe를 파일 시스템에서 임의로 이름 바꾸기(Move-Item)**:
   - `.NET Single-File` 환경에서 파일명을 사후 변경하면 HostFXR이 번들 매니페스트를 찾지 못해 `2147516562` (0x80008092) 크래시 발생.
-  - 해결: 빌드 프로필(`personal.pubxml`, `release.pubxml`)에 `<AssemblyName>`을 각각 `muse dash bms editer 1`, `muse dash bms editer 2`로 지정하여 .NET SDK가 처음부터 일치된 매니페스트로 빌드하도록 구성.
+  - 해결: 빌드 프로필(`personal.pubxml`, `release.pubxml`)에 `<AssemblyName>`을 각각 `muse dash 1 bms editer 1`, `muse dash 1 bms editer 2`로 지정하여 .NET SDK가 처음부터 일치된 매니페스트로 빌드하도록 구성.
 * ❌ **기존 산출물 덮어쓰기 빌드**:
   - `PublishSingleFile` 환경에서 기존 exe가 남아있는 상태로 덮어쓰기 빌드를 진행할 경우 구버전 매니페스트 캐시나 임베딩 충돌이 발생할 수 있음. 퍼블리싱 전 반드시 기존 파일 삭제 후 재패키징 필요.
 
@@ -115,7 +115,7 @@ muse dash bms editer/
   - 스크롤하면 컨트롤의 `Bounds` 가 바뀌어 Avalonia 가 다시 그립니다. 그러니 뷰포트 여유분(`Overscan`)을 크게 잡아도 스크롤 비용만 늘어납니다.
   - **배경 사각형은 자르면 안 됩니다.** Avalonia 는 그린 자리만 클릭을 받습니다. 배경까지 자르면 아직 안 그린 구간이 클릭되지 않습니다.
 * ❌ **`avares://` 경로에 어셈블리 이름 박기**:
-  - 배포 프로필의 `<AssemblyName>` 이 `muse dash bms editer 1` / `2` 라 고정 이름으로는 배포본에서만 그림을 못 찾았고, `try/catch` 에 묻혀 조용히 기본 아이콘이 떴습니다. `Assembly.GetName().Name` 을 쓰십시오.
+  - 배포 프로필의 `<AssemblyName>` 이 `muse dash 1 bms editer 1` / `2` 라 고정 이름으로는 배포본에서만 그림을 못 찾았고, `try/catch` 에 묻혀 조용히 기본 아이콘이 떴습니다. `Assembly.GetName().Name` 을 쓰십시오.
 
 * ❌ **파형 위에 온셋(어택) 세로선 그리기** (`6c1276f` 에서 제거):
   - 소리는 격자에 맞는데 선은 어긋나 보이는 곡(With 164 BPM)에서 오히려 판단을 흐렸습니다. 다시 그리지 마십시오. 온셋은 ⚡ 오프셋 자동 맞춤(`TryDetectAudioOffsetMs`)의 재료로만 남아 있습니다.
@@ -139,8 +139,8 @@ muse dash bms editer/
 
 | 스크립트 | 대상 파일 | 설명 |
 | :--- | :--- | :--- |
-| **[`build_personal.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_personal.bat)** | [`publish/personal/muse dash bms editer 1.exe`](file:///h:/source/repos/muse%20dash%20bms%20editer/publish/personal/muse%20dash%20bms%20editer%201.exe) | **[1번: 개인용]** 골드 아이콘 + 에셋 100% 내장 단일 exe 패키징 |
-| **[`build_release.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_release.bat)** | [`publish/release/muse dash bms editer 2.exe`](file:///h:/source/repos/muse%20dash%20bms%20editer/publish/release/muse%20dash%20bms%20editer%202.exe) | **[2번: 릴리즈용]** 블루 아이콘 + 외부 `note_icons` 폴더 세트 패키징 |
+| **[`build_personal.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_personal.bat)** | [`publish/personal/muse dash 1 bms editer 1.exe`](file:///h:/source/repos/muse%20dash%20bms%20editer/publish/personal/muse%20dash%201%20bms%20editer%201.exe) | **[1번: 개인용]** 골드 아이콘 + 에셋 100% 내장 단일 exe 패키징 |
+| **[`build_release.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_release.bat)** | [`publish/release/muse dash 1 bms editer 2.exe`](file:///h:/source/repos/muse%20dash%20bms%20editer/publish/release/muse%20dash%201%20bms%20editer%202.exe) | **[2번: 릴리즈용]** 블루 아이콘 + 외부 `note_icons` 폴더 세트 패키징 |
 | **[`build_publish.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/build_publish.bat)** | 둘 다 | 기존 산출물 삭제 후 1번과 2번을 순차적으로 클린 패키징 |
 | **[`run_personal.bat`](file:///h:/source/repos/muse%20dash%20bms%20editer/run_personal.bat)** | 실행 | 1번 개인용 exe를 바로 실행 (없으면 자동 빌드 후 실행) |
 

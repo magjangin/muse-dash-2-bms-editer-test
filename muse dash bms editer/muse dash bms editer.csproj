@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <Version>0.1.5</Version>
-    <Product>muse dash bms editer</Product>
+    <Product>muse dash 1 bms editer</Product>
     <Company>magjangin</Company>
     <Description>BMS Chart Editor for Muse Dash</Description>
     <WebView2UseWpf>false</WebView2UseWpf>

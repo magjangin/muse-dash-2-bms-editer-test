@@ -1,11 +1,11 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 Write-Host "========================================================" -ForegroundColor Cyan
-Write-Host " [1번: 개인용] Muse Dash BMS Editor 패키징 (내장 exe)" -ForegroundColor Cyan
+Write-Host " [1번: 개인용] Muse Dash 1 BMS Editor 패키징 (내장 exe)" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
 $targetDir = "publish/personal"
-$exePath = Join-Path $targetDir "muse dash bms editer 1.exe"
+$exePath = Join-Path $targetDir "muse dash 1 bms editer 1.exe"
 
 # 1. 기존 폴더 내용 정리
 if (Test-Path $targetDir) {
@@ -13,7 +13,7 @@ if (Test-Path $targetDir) {
     Get-ChildItem -Path $targetDir -Recurse | Remove-Item -Recurse -Force
 }
 
-# 2. 1번 개인용 빌드 실행 (EmbedNoteIcons=true, AssemblyName="muse dash bms editer 1")
+# 2. 1번 개인용 빌드 실행 (EmbedNoteIcons=true, AssemblyName="muse dash 1 bms editer 1")
 Write-Host "[빌드] 1번 개인용 exe (에셋 내장 + 1번 골드 아이콘) 패키징 중..." -ForegroundColor Yellow
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=personal
 if ($LASTEXITCODE -ne 0) {
