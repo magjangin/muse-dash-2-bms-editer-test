@@ -80,6 +80,8 @@ muse dash bms editer/
 
 7. **줄바꿈 보존**: 파서가 첫 `\n` 앞의 `\r` 유무로 원본 줄바꿈을 감지해 `BmsChart.NewLine` 에 담고, `BmsWriter` 가 그대로 되돌려 씁니다. 저장만 해도 LF 파일이 CRLF 로 바뀌어 diff 가 전부 달라지는 일을 막습니다.
 8. **단일 인스턴스 & 마디 상한**: 탐색기에서 차트를 더블클릭해도 창이 새로 뜨지 않고 이미 떠 있는 창으로 경로가 넘어갑니다(`Program.cs` 의 뮤텍스+파이프). 마디 번호는 `BmsParser.MaxMeasureNumber`(9999) 를 넘으면 노트로 읽지 않고 보존줄로 넘겨, 줄 하나 때문에 파일 전체를 못 여는 일을 막습니다. 단일 인스턴스로 넘어온 경로는 **이미 작업 중인 창**이 받으므로 `OpenChartPathAsync` 로 열어 저장 확인을 거치고, 차트 확장자(.bms/.bme/.bml)가 아니면 무시합니다(실행 직후 인자 열기만 확인 없이 `OpenExternalFileAsync`).
+   - 파이프 이름에 **로그인 세션 번호**를 붙입니다. 뮤텍스는 `Local\` 이라 세션마다 따로인데 파이프는 PC 전체 이름이라, 다른 계정이 먼저 띄우면 이쪽 서버가 만들어지지 않고 예외 루프가 CPU 한 코어를 먹었습니다. 오류 시에는 500ms 쉬었다 다시 엽니다.
+   - 창이 구독하기 전에 넘어온 경로는 `App.TakePendingExternalOpen()` 에 맡겨 두고, 시작(복구 질문·실행 인자 열기)이 끝나기 전이나 다른 외부 열기 처리 중에 온 경로는 마지막 하나만 미뤄 두었다가 엽니다. 예전에는 버려지거나 복구 질문과 저장 확인 창이 겹쳤습니다.
 
 ---
 
@@ -125,6 +127,9 @@ muse dash bms editer/
 * ⚠️ **자동 BPM 의 iBMSC 값은 일부러 원본 그대로입니다**:
   - [`IbmscBpmDetector`](muse%20dash%20bms%20editer/Services/IbmscBpmDetector.cs) 는 iBMSC 와 같은 숫자를 보려고 옮긴 것이라, cos 만 쓰는 점수 식·저음 필터의 채널 오해까지 그대로 둡니다. "고치면" 비교 기준이 사라집니다. 소수점은 [`PreciseBpmDetector`](muse%20dash%20bms%20editer/Services/PreciseBpmDetector.cs) 몫입니다.
 
+* ❌ **테스트가 실제 사용자 폴더에 쓰기**:
+  - `NoteIconImporter.Import` 가 대상과 상관없이 `%LocalAppData%\muse dash bms editer\note_icon_source.txt` 에 "마지막으로 가져온 폴더"를 적어서, `dotnet test` 를 돌릴 때마다 사용자의 기록이 곧 지워질 임시 경로로 덮어써졌습니다. 지금은 대상이 `UserFolder` 일 때만 적습니다. 새 테스트가 사용자 데이터 폴더를 건드리지 않는지 확인하십시오.
+
 * ❌ **XAML 에 `NumericUpDown` 을 그대로 쓰기**:
   - Avalonia 12.0.5 의 자동화 연결이 `decimal` 을 UIA 로 못 넘겨, 화면 낭독기·접근성 도구가 붙어 있으면 값이 바뀔 때 예외가 납니다(차트를 여는 도중 문서가 반쯤만 들어옴). 평소에는 안 보입니다. [`NumberBox`](muse%20dash%20bms%20editer/Views/Controls/NumberBox.cs) 를 쓰십시오.
 
@@ -143,7 +148,7 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.1.5 (`.csproj` 의 `Version`). **테스트 462개 전부 통과** (2026-11-18, `dotnet test "muse dash bms editer.slnx"`).
+* **현재 버전**: v0.1.5 (`.csproj` 의 `Version`). **테스트 464개 전부 통과** (2026-11-22, `dotnet test "muse dash bms editer.slnx"`).
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
 * **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,
   버전·테스트 수가 바뀌면 `docs/issues/known_issues.md` 머리말과 이 절을 함께 갱신하십시오 (이전에 224개로 굳어 있던 적이 있습니다).

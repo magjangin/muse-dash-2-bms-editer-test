@@ -45,6 +45,13 @@ public partial class MainWindow
         Closed += (_, _) => App.ExternalOpenRequested -= OnExternalOpenRequested;
     }
 
+    // 시작(자동 저장 복구 질문·실행 인자 열기)이 끝나기 전이거나 다른 외부 열기를 처리하는 중에
+    // 들어온 경로. 그 사이에 바로 열면 복구 질문 창과 저장 확인 창이 겹쳐 뜨고, 복구한 내용을
+    // 확인 없이 덮어쓸 수 있다. 마지막 하나만 맡아 두었다가 앞의 일이 끝나면 연다.
+    private bool _startupCompleted;
+    private bool _isHandlingExternalOpen;
+    private string? _deferredExternalOpen;
+
     private void OnExternalOpenRequested(string? filePath)
     {
         Dispatcher.UIThread.Post(async () =>
@@ -54,21 +61,65 @@ public partial class MainWindow
 
             Activate();
 
-            // 이미 작업 중인 창이므로 저장 안 한 내용이 있으면 확인을 받는다(실행 직후 인자 열기와 다르다).
-            if (!string.IsNullOrWhiteSpace(filePath)
-                && FolderMedia.ChartExtensions.Contains(Path.GetExtension(filePath), StringComparer.OrdinalIgnoreCase)
-                && DataContext is MainWindowViewModel vm)
-                await OpenChartPathAsync(vm, filePath);
+            if (!IsChartPath(filePath))
+                return;
+
+            if (!_startupCompleted || _isHandlingExternalOpen)
+            {
+                _deferredExternalOpen = filePath;
+                return;
+            }
+
+            await HandleExternalOpenAsync(filePath!);
         });
+    }
+
+    private static bool IsChartPath(string? filePath)
+        => !string.IsNullOrWhiteSpace(filePath)
+           && FolderMedia.ChartExtensions.Contains(Path.GetExtension(filePath), StringComparer.OrdinalIgnoreCase);
+
+    private async Task HandleExternalOpenAsync(string filePath)
+    {
+        _isHandlingExternalOpen = true;
+        try
+        {
+            var next = filePath;
+            while (next is not null)
+            {
+                // 이미 작업 중인 창이므로 저장 안 한 내용이 있으면 확인을 받는다(실행 직후 인자 열기와 다르다).
+                if (DataContext is MainWindowViewModel vm)
+                    await OpenChartPathAsync(vm, next);
+
+                next = _deferredExternalOpen;
+                _deferredExternalOpen = null;
+            }
+        }
+        finally
+        {
+            _isHandlingExternalOpen = false;
+        }
     }
 
     // 창이 뜬 직후 한 번. 복구를 먼저 묻고, 복구하지 않았을 때만 실행 인자의 파일을 연다.
     public async Task RunStartupAsync(string? startupPath)
     {
-        var recovered = await OfferAutoSaveRecoveryAsync();
+        try
+        {
+            var recovered = await OfferAutoSaveRecoveryAsync();
 
-        if (!recovered && startupPath is not null)
-            await OpenExternalFileAsync(startupPath);
+            if (!recovered && startupPath is not null)
+                await OpenExternalFileAsync(startupPath);
+        }
+        finally
+        {
+            _startupCompleted = true;
+        }
+
+        // 시작하는 동안 두 번째 실행이 넘긴 경로가 있으면 이제 연다.
+        var pending = _deferredExternalOpen ?? App.TakePendingExternalOpen();
+        _deferredExternalOpen = null;
+        if (IsChartPath(pending))
+            await HandleExternalOpenAsync(pending!);
     }
 
     private async Task<bool> OfferAutoSaveRecoveryAsync()
