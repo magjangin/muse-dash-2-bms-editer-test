@@ -154,8 +154,8 @@
 
 | 파일 | 아이콘 | 구성 |
 |:---|:---:|:---|
-| `publish/personal/muse dash bms editer 1.exe` | 골드 · 1 | 노트 그림까지 **exe 하나에 내장** (개인용, 저장소에 올리지 않음) |
-| `publish/release/muse dash bms editer 2.exe` | 블루 · 2 | 그림 미내장 exe + 옆의 `note_icons/` 폴더 |
+| `publish/personal/muse dash 1 bms editer 1.exe` | 골드 · 1 | 노트 그림까지 **exe 하나에 내장** (개인용, 저장소에 올리지 않음) |
+| `publish/release/muse dash 1 bms editer 2.exe` | 블루 · 2 | 그림 미내장 exe + 옆의 `note_icons/` 폴더 |
 
 창 제목 끝의 `(1. 개인용)` / `(2. 릴리즈용)` 으로도 구별됩니다.
 `.NET` 단일 파일 특성상 **exe 이름을 직접 바꾸면 실행되지 않습니다** — 이름은 배포 프로필에서 정해집니다.
@@ -173,10 +173,10 @@ dotnet test "muse dash bms editer.slnx"
 .\build_publish.bat
 
 # 또는 프로필별 개별 배포:
-# 1) 1번 개인용 exe (골드 아이콘, 에셋 100% 내장 단일 exe) → publish/personal/muse dash bms editer 1.exe
+# 1) 1번 개인용 exe (골드 아이콘, 에셋 100% 내장 단일 exe) → publish/personal/muse dash 1 bms editer 1.exe
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=personal
 
-# 2) 2번 릴리즈용 exe (블루 아이콘, 에셋 폴더 분리형 패키지) → publish/release/muse dash bms editer 2.exe
+# 2) 2번 릴리즈용 exe (블루 아이콘, 에셋 폴더 분리형 패키지) → publish/release/muse dash 1 bms editer 2.exe
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=release
 ```
 
