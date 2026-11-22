@@ -397,10 +397,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool _isDirty;
 
-    // 에셋 내장 여부로 1번(개인용) / 2번(릴리즈용) 판별
+    // 1번(개인용) / 2번(릴리즈용) 판별. 개인용 빌드 설정(EmbedNoteIcons=true)이 남긴 표식을 먼저 보고,
+    // 표식이 없는 예전 방식 빌드는 그림 리소스가 들어 있는지로 가른다.
     // 한 번만 본다. 개인용 빌드는 리소스 이름이 수백 개라 제목을 고칠 때마다 훑을 값이 아니다.
-    public static bool IsPersonalEdition { get; } =
-        typeof(MainWindowViewModel).Assembly.GetManifestResourceNames().Any(n => n.StartsWith("note_icons/", StringComparison.Ordinal));
+    public static bool IsPersonalEdition { get; } = DetectPersonalEdition(typeof(MainWindowViewModel).Assembly);
+
+    public static bool DetectPersonalEdition(System.Reflection.Assembly assembly)
+    {
+        foreach (var meta in assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false))
+        {
+            if (meta is System.Reflection.AssemblyMetadataAttribute { Key: "BmsEditerEdition" } edition)
+                return string.Equals(edition.Value, "personal", StringComparison.Ordinal);
+        }
+
+        return assembly.GetManifestResourceNames().Any(n => n.StartsWith("note_icons/", StringComparison.Ordinal));
+    }
 
     public static string EditionLabel => IsPersonalEdition ? "1. 개인용" : "2. 릴리즈용";
 

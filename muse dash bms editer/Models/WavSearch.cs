@@ -75,7 +75,7 @@ public static partial class WavSearch
             .Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var kind = words.Length > 0 ? words[0].TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9') : string.Empty;
         var speedWord = SpeedWord().Match(name);
-        var speed = (name.Length >= 6 ? NoteSpeed.Of(name[..6]) : null)
+        var speed = (SceneUid.Of(name) is { } uid ? NoteSpeed.Of(uid) : null)
             ?? (speedWord.Success ? int.Parse(speedWord.Groups[1].Value) : null);
 
         return new WavTraits(

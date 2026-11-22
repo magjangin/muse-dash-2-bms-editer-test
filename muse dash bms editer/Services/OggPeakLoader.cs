@@ -53,7 +53,7 @@ public static class OggPeakLoader
     public static OggWaveform Load(OggAudioData data, double peaksPerSecond = 80.0)
     {
         var durationSeconds = data.DurationSeconds;
-        var peakCount = Math.Clamp((int)(durationSeconds * peaksPerSecond), 32, 20000);
+        var peakCount = Math.Clamp((int)(durationSeconds * peaksPerSecond), 32, 100000);
 
         var channels = data.Channels;
         var totalFrames = data.FrameCount;

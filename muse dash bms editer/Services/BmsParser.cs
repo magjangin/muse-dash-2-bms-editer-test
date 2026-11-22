@@ -68,6 +68,8 @@ public static partial class BmsParser
         RegexOptions.IgnoreCase)]
     private static partial Regex ControlFlowRegex();
 
+    public const int MaxMeasureNumber = 9999;
+
     private static readonly HashSet<string> SupportedChannels = new(StringComparer.OrdinalIgnoreCase)
     {
         "16", "11", "12", "13", "14", "15", "18"
@@ -90,26 +92,27 @@ public static partial class BmsParser
         // 적힌 경로에 파일이 없을 때만 만든다. 대부분의 차트는 적힌 그대로라 폴더를 훑을 일이 없다.
         // 파일을 바이트로 한 번만 읽고 인코딩을 가려낸다. 어느 인코딩으로 읽었는지는
         // 결과에 실어 보내, 저장할 때 그대로 되돌려 쓴다.
-        var (rawLines, encoding, directory, mediaPathIndex) = ReadLinesWithMetadata(filePath, baseDirectory);
-        return ParseLines(rawLines, encoding, directory, mediaPathIndex);
+        var (rawLines, encoding, newLine, directory, mediaPathIndex) = ReadLinesWithMetadata(filePath, baseDirectory);
+        return ParseLines(rawLines, encoding, directory, mediaPathIndex, newLine);
     }
 
-    internal static (string[] Lines, Encoding Encoding, string Directory, Lazy<Dictionary<string, string>> MediaPathIndex) ReadLinesWithMetadata(
+    internal static (string[] Lines, Encoding Encoding, string NewLine, string Directory, Lazy<Dictionary<string, string>> MediaPathIndex) ReadLinesWithMetadata(
         string filePath, string? baseDirectory = null)
     {
         var directory = baseDirectory ?? Path.GetDirectoryName(filePath) ?? "";
         var mediaPathIndex = new Lazy<Dictionary<string, string>>(() => BuildFileNameIndex(directory));
-        var (lines, encoding) = ReadAllLines(filePath, directory, mediaPathIndex);
-        return (lines, encoding, directory, mediaPathIndex);
+        var (lines, encoding, newLine) = ReadAllLines(filePath, directory, mediaPathIndex);
+        return (lines, encoding, newLine, directory, mediaPathIndex);
     }
 
     internal static BmsParseResult ParseLines(
         string[] rawLines,
         Encoding encoding,
         string directory,
-        Lazy<Dictionary<string, string>>? mediaPathIndex = null)
+        Lazy<Dictionary<string, string>>? mediaPathIndex = null,
+        string newLine = "\r\n")
     {
-        var chart = new BmsChart();
+        var chart = new BmsChart { NewLine = newLine };
         var parsedBpm = 120.0;
         var wavItems = new List<BmsWavItem>();
         mediaPathIndex ??= new Lazy<Dictionary<string, string>>(() => BuildFileNameIndex(directory));
@@ -252,9 +255,9 @@ public static partial class BmsParser
 
             var dataMatch = DataRegex().Match(line);
 
-            // 숫자가 int 범위를 넘는 마디 번호. 줄 하나 때문에 파일 전체를 못 여는 일이 없게 보존줄로 넘긴다.
+            // 숫자가 int 범위나 허용 마디 상한(9999)을 넘는 마디 번호. 줄 하나 때문에 파일 전체를 못 여는 일이 없게 보존줄로 넘긴다.
             var measureNum = 0;
-            if (!dataMatch.Success || !int.TryParse(dataMatch.Groups[1].Value, out measureNum))
+            if (!dataMatch.Success || !int.TryParse(dataMatch.Groups[1].Value, out measureNum) || measureNum > MaxMeasureNumber)
             {
                 // 갈래를 나누는 제어 줄
                 if (ControlFlowRegex().IsMatch(line))
@@ -487,7 +490,7 @@ public static partial class BmsParser
         }
     }
 
-    private static int DetermineChunkSize(string dataStr, bool has3DigitWav, Dictionary<string, string> wavTable)
+    internal static int DetermineChunkSize(string dataStr, bool has3DigitWav, Dictionary<string, string> wavTable)
     {
         if (!has3DigitWav)
             return 2;
@@ -614,11 +617,11 @@ public static partial class BmsParser
             return Array.Empty<string>();
 
         var directory = Path.GetDirectoryName(filePath) ?? "";
-        var (lines, _) = ReadAllLines(filePath, directory, new Lazy<Dictionary<string, string>>(() => BuildFileNameIndex(directory)));
+        var (lines, _, _) = ReadAllLines(filePath, directory, new Lazy<Dictionary<string, string>>(() => BuildFileNameIndex(directory)));
         return lines;
     }
 
-    private static (string[] Lines, Encoding Encoding) ReadAllLines(
+    private static (string[] Lines, Encoding Encoding, string NewLine) ReadAllLines(
         string filePath, string directory, Lazy<Dictionary<string, string>> fileNameIndex)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -626,14 +629,35 @@ public static partial class BmsParser
         var bytes = File.ReadAllBytes(filePath);
 
         if (TryReadByBom(bytes, out var bomText, out var bomEncoding))
-            return (SplitLines(bomText), bomEncoding);
+            return (SplitLines(bomText), bomEncoding, DetectNewLine(bomText));
+
+        var newLine = DetectNewLine(bytes);
 
         // UTF-8 로 한 글자도 어긋나지 않고 읽히면 UTF-8 이다.
         // CP932/CP949 로 쓴 한글·일본어가 우연히 올바른 UTF-8 이 되는 일은 사실상 없다.
         if (TryDecodeStrict(bytes, StrictUtf8, out var utf8Text))
-            return (SplitLines(utf8Text), DefaultEncoding);
+            return (SplitLines(utf8Text), DefaultEncoding, newLine);
 
-        return DecodeLegacy(bytes, directory, fileNameIndex);
+        var (legacyLines, legacyEncoding) = DecodeLegacy(bytes, directory, fileNameIndex);
+        return (legacyLines, legacyEncoding, newLine);
+    }
+
+    private static string DetectNewLine(string text)
+    {
+        var lf = text.IndexOf('\n');
+        if (lf < 0)
+            return "\r\n";
+
+        return lf > 0 && text[lf - 1] == '\r' ? "\r\n" : "\n";
+    }
+
+    private static string DetectNewLine(byte[] bytes)
+    {
+        var lf = Array.IndexOf(bytes, (byte)'\n');
+        if (lf < 0)
+            return "\r\n";
+
+        return lf > 0 && bytes[lf - 1] == (byte)'\r' ? "\r\n" : "\n";
     }
 
     private static bool TryReadByBom(byte[] bytes, out string text, out Encoding encoding)

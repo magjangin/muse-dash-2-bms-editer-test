@@ -47,4 +47,34 @@ public static class FileAssociation
             openWith.SetValue(ProgId, "", RegistryValueKind.String);
         }
     }
+
+    // 이 에디터가 등록한 연결만 지운다. 다른 프로그램으로 이미 바뀐 확장자는 건드리지 않는다.
+    [SupportedOSPlatform("windows")]
+    public static void Unregister()
+    {
+        using var classesRoot = Registry.CurrentUser.OpenSubKey(@"Software\Classes", writable: true);
+        if (classesRoot is not null)
+            Unregister(classesRoot);
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static void Unregister(RegistryKey classesRoot)
+    {
+        classesRoot.DeleteSubKeyTree(ProgId, throwOnMissingSubKey: false);
+
+        foreach (var extension in Extensions)
+        {
+            using var key = classesRoot.OpenSubKey(extension, writable: true);
+            if (key is null)
+                continue;
+
+            if (string.Equals(key.GetValue("") as string, ProgId, StringComparison.Ordinal))
+                key.DeleteValue("", throwOnMissingValue: false);
+
+            // 등록할 때 '연결 프로그램' 목록에도 넣었으므로 같이 뺀다.
+            // 남겨 두면 지워진 ProgId 를 가리키는 빈 항목이 목록에 남는다.
+            using var openWith = key.OpenSubKey("OpenWithProgids", writable: true);
+            openWith?.DeleteValue(ProgId, throwOnMissingValue: false);
+        }
+    }
 }

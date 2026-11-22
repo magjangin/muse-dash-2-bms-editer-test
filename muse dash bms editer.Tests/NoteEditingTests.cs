@@ -269,4 +269,25 @@ public sealed class NoteEditingTests : IDisposable
         Assert.Empty(vm.Notes);
         Assert.NotSame(initialNotes, vm.Notes);
     }
+
+    [Fact]
+    public void 조건_블록_안의_노트를_마디_복제하면_갈래가_유지된다()
+    {
+        var vm = new MainWindowViewModel();
+        var original = new BmsNote
+        {
+            Measure = 1,
+            LaneId = "11",
+            Position = 0.25,
+            WavKey = "01",
+            BranchId = 2,
+        };
+        vm.Chart.Notes.Add(original);
+
+        var result = vm.CopyNotesByMeasureOffset(new[] { original }, measureOffset: 1);
+
+        Assert.Equal(1, result.Copied);
+        var copied = Assert.Single(vm.Chart.Notes, n => n.Measure == 2);
+        Assert.Equal(2, copied.BranchId);
+    }
 }

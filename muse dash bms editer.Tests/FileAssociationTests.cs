@@ -55,4 +55,48 @@ public sealed class FileAssociationTests
             Registry.CurrentUser.DeleteSubKeyTree(tempKeyName, throwOnMissingSubKey: false);
         }
     }
+
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public void 해제하면_이_에디터가_넣은_것만_지우고_다른_연결은_남긴다()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var tempKeyName = @"Software\_Test_MuseDash2BmsEditer_" + Guid.NewGuid().ToString("N");
+        try
+        {
+            using var root = Registry.CurrentUser.CreateSubKey(tempKeyName, writable: true)!;
+            using (var bmsKey = root.CreateSubKey(".bms")!)
+            {
+                bmsKey.SetValue("", "MuseDashBms.Chart");
+                using var openWith = bmsKey.CreateSubKey("OpenWithProgids")!;
+                openWith.SetValue("MuseDashBms.Chart", "", RegistryValueKind.String);
+            }
+
+            FileAssociation.Register(root, @"C:\dummy\muse dash 2 bms editer 1.exe");
+            FileAssociation.Unregister(root);
+
+            Assert.Null(root.OpenSubKey(FileAssociation.ProgId));
+
+            using (var bmsKey = root.OpenSubKey(".bms")!)
+            {
+                Assert.Equal("MuseDashBms.Chart", bmsKey.GetValue("") as string);
+                using var openWith = bmsKey.OpenSubKey("OpenWithProgids")!;
+                Assert.Null(openWith.GetValue(FileAssociation.ProgId));
+                Assert.Equal("", openWith.GetValue("MuseDashBms.Chart") as string);
+            }
+
+            using (var bmeKey = root.OpenSubKey(".bme")!)
+            {
+                Assert.Null(bmeKey.GetValue(""));
+                using var openWith = bmeKey.OpenSubKey("OpenWithProgids")!;
+                Assert.Null(openWith.GetValue(FileAssociation.ProgId));
+            }
+        }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(tempKeyName, throwOnMissingSubKey: false);
+        }
+    }
 }

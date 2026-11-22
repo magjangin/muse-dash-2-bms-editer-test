@@ -265,6 +265,7 @@ public sealed partial class MainWindowViewModel
         // 한 번에 갈아끼운다. 하나씩 Add 하면 항목마다 알림이 나가고,
         // 통계·팔레트 창이 그때마다 전체 재집계를 돈다. (BulkObservableCollection 주석 참고)
         WavList.ReplaceAll(parsed.WavItems);
+        _keySoundPlayer.ClearCache();
         _keySoundPlayer.PreloadAsync(Chart.WavTable.Values);
 
         if (WavList.Count > 0)

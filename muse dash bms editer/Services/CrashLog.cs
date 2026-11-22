@@ -11,6 +11,10 @@ namespace bms_editer.Services;
 // 기록을 남기다 실패해도 원래 오류를 가리면 안 되므로 여기서 나는 예외는 전부 삼킨다.
 public static class CrashLog
 {
+    // 원본의 이름을 그대로 두어 upstream 코드가 바뀌지 않고 이 포크의 폴더를 가리키게 한다.
+    public const string AppDataFolderName = AppIdentity.DataFolderName;
+    public const int MaxLogFiles = 20;
+
     public static string Folder => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         AppIdentity.DataFolderName,
@@ -28,11 +32,38 @@ public static class CrashLog
             var version = typeof(CrashLog).Assembly.GetName().Version;
 
             File.AppendAllText(path, $"[{source}] v{version}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+            TrimOldLogs();
             return path;
         }
         catch (Exception)
         {
             return null;
+        }
+    }
+
+    // 오래된 기록 정리는 덤이다. 여기서 실패했다고(다른 창이 그 파일을 열고 있음 등)
+    // 방금 쓴 기록까지 "못 썼다"(null)로 알리면 사용자에게 경로가 안 보인다.
+    // 그래서 정리 실패는 Write 의 결과에 섞지 않고, 한 파일이 안 지워져도 나머지는 지운다.
+    private static void TrimOldLogs()
+    {
+        string[] files;
+        try
+        {
+            files = Directory.GetFiles(Folder, "crash-*.log");
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (files.Length <= MaxLogFiles)
+            return;
+
+        Array.Sort(files, StringComparer.Ordinal);
+        for (var i = 0; i < files.Length - MaxLogFiles; i++)
+        {
+            try { File.Delete(files[i]); }
+            catch (Exception) { /* 다음 파일로 */ }
         }
     }
 }

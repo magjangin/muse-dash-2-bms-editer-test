@@ -111,6 +111,14 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         return _cache.GetOrAdd(filePath, static path => new Lazy<PcmAudioData?>(() => WavDecoder.Decode(path))).Value;
     }
 
+    // 다른 차트를 열 때 이전 곡의 키음 PCM 이 메모리에 남지 않도록 비운다.
+    public void ClearCache()
+    {
+        StopAll();
+        _cache.Clear();
+        _missingUntil.Clear();
+    }
+
     public void PreloadAsync(IEnumerable<string> filePaths)
     {
         var snapshot = filePaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();

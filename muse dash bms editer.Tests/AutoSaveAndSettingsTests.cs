@@ -482,6 +482,55 @@ public sealed class AutoSaveAndSettingsTests : IDisposable
         window.Close();
     });
 
+    [Fact]
+    public void UI_예외_기록은_쿨다운_동안_반복되지_않는다()
+    {
+        var last = long.MinValue;
+
+        Assert.True(bms_editer.App.ShouldRecordUiException(1000, ref last, 5000));
+        Assert.False(bms_editer.App.ShouldRecordUiException(1016, ref last, 5000));
+        Assert.False(bms_editer.App.ShouldRecordUiException(5999, ref last, 5000));
+        Assert.True(bms_editer.App.ShouldRecordUiException(6000, ref last, 5000));
+    }
+
+    [Fact]
+    public void 개인용_표식도_그림_리소스도_없는_어셈블리는_릴리즈용으로_본다()
+    {
+        // 테스트 어셈블리에는 BmsEditerEdition 표식도 note_icons 리소스도 없다.
+        Assert.False(bms_editer.ViewModels.MainWindowViewModel.DetectPersonalEdition(typeof(AutoSaveAndSettingsTests).Assembly));
+
+        // 평소 개발 빌드(EmbedNoteIcons 없음)도 릴리즈용이다.
+        Assert.False(bms_editer.ViewModels.MainWindowViewModel.IsPersonalEdition);
+    }
+
+    [Fact]
+    public void 창이_받기_전에_넘어온_외부_열기는_맡아_두었다가_꺼내_준다()
+    {
+        // 다른 테스트가 남긴 값이 있으면 비운다. (헤드리스 창 테스트는 구독하지 않는다)
+        bms_editer.App.TakePendingExternalOpen();
+
+        bms_editer.App.RaiseExternalOpenRequested(@"C:\a.bms");
+        bms_editer.App.RaiseExternalOpenRequested(@"C:\b.bms");
+        bms_editer.App.RaiseExternalOpenRequested(null);
+
+        Assert.Equal(@"C:\b.bms", bms_editer.App.TakePendingExternalOpen());
+        Assert.Null(bms_editer.App.TakePendingExternalOpen());
+
+        string? received = null;
+        void Handler(string? p) => received = p;
+        bms_editer.App.ExternalOpenRequested += Handler;
+        try
+        {
+            bms_editer.App.RaiseExternalOpenRequested(@"C:\c.bms");
+            Assert.Equal(@"C:\c.bms", received);
+            Assert.Null(bms_editer.App.TakePendingExternalOpen());
+        }
+        finally
+        {
+            bms_editer.App.ExternalOpenRequested -= Handler;
+        }
+    }
+
     private static AutoSaveMeta Meta(DateTime? at = null) =>
         new(null, "base.bms", at ?? DateTime.UtcNow, 0, Encoding.UTF8.CodePage, false, "t");
 }
