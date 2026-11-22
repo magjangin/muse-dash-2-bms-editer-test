@@ -94,6 +94,9 @@ muse dash bms editer/
    - 정상 저장·"저장 안 함"이면 지웁니다. **다음 실행에 남아 있는 것은 곧 비정상 종료의 증거**입니다. 다른 창이 쓰는 폴더는 `session.lock` 으로 가립니다(프로세스가 죽으면 OS 가 풀어 줌).
    - `MainWindow.EnableDesktopServices()` 는 **실제 앱 시작(`App`)에서만** 부릅니다. 헤드리스 창 테스트가 사용자의 설정·자동 저장을 건드리면 안 됩니다. 같은 이유로 `AutoSave` 의 기본값은 null 입니다.
 
+7. **줄바꿈 보존**: 파서가 첫 `\n` 앞의 `\r` 유무로 원본 줄바꿈을 감지해 `BmsChart.NewLine` 에 담고, `BmsWriter` 가 그대로 되돌려 씁니다. 저장만 해도 LF 파일이 CRLF 로 바뀌어 diff 가 전부 달라지는 일을 막습니다.
+8. **단일 인스턴스 & 마디 상한**: 탐색기에서 차트를 더블클릭해도 창이 새로 뜨지 않고 이미 떠 있는 창으로 경로가 넘어갑니다(`Program.cs` 의 뮤텍스+파이프). 마디 번호는 `BmsParser.MaxMeasureNumber`(9999) 를 넘으면 노트로 읽지 않고 보존줄로 넘겨, 줄 하나 때문에 파일 전체를 못 여는 일을 막습니다. 단일 인스턴스로 넘어온 경로는 **이미 작업 중인 창**이 받으므로 `OpenChartPathAsync` 로 열어 저장 확인을 거치고, 차트 확장자(.bms/.bme/.bml)가 아니면 무시합니다(실행 직후 인자 열기만 확인 없이 `OpenExternalFileAsync`).
+
 ---
 
 ## 4. 커스텀 에셋 주입 파이프라인 & UID 규칙
@@ -132,7 +135,7 @@ muse dash bms editer/
   - 소리는 격자에 맞는데 선은 어긋나 보이는 곡(With 164 BPM)에서 오히려 판단을 흐렸습니다. 다시 그리지 마십시오. 온셋은 ⚡ 오프셋 자동 맞춤(`TryDetectAudioOffsetMs`)의 재료로만 남아 있습니다.
   - 대신 [`GridFitAdvisor`](muse%20dash%20bms%20editer/Services/GridFitAdvisor.cs) 가 "파형으로 맞춰도 되나 / 소리로 들어야 하나"만 안내합니다. 사용자가 **숫자(몇 ms 어긋남)는 원하지 않았습니다.**
 * ❌ **노트 그림 구석에 속도(1~3) 색 동그라미 깔기** (`e2e4e3c` 에서 추가, 이후 제거):
-  - 방향 삼각형 밑에 초록·파랑·빨강 동그라미를 깔았더니 삼각형의 위/아래가 한눈에 안 읽히고 게임 그림도 가렸습니다. 오른쪽으로 밀고 키워 봐도 사용자가 "혼동이 온다"며 삼각형만 있는 쪽을 골랐습니다. 다시 넣지 마십시오. `NoteIcon.Speed` 값은 남아 있지만 격자에는 그리지 않습니다.
+  - 방향 삼각형 밑에 초록·파랑·빨강 동그라미를 깔았더니 삼각형의 위/아래가 한눈에 안 읽히고 게임 그림도 가렸습니다. 오른쪽으로 밀고 키워 봐도 사용자가 "혼동이 온다"며 삼각형만 있는 쪽을 골랐습니다. 다시 넣지 마십시오. `NoteIcon.Speed` 값은 남아 있지만 기본으로는 격자에 그리지 않습니다. v0.1.5 부터는 사용자가 켜는 **노트 속도 표시**(`ShowNoteSpeed`, 기본 꺼짐) 옵션으로만 그림 **왼쪽 위**에 숫자 배지를 따로 그립니다 — 방향 삼각형 밑에 깔지 마십시오.
 * ❌ **격자 판정을 "격자 ±15ms 안에 드는 어택 비율"로 하기**:
   - 루바토·스윙·셋잇단처럼 원래 16분 격자 밖 소리가 많은 곡(your reality 0.23, 아기상어 0.20)까지 "소리로 들으세요"로 걸렀습니다. 지금은 "8마디 구간이 같은 쪽으로 25ms 이상 3구간 연속 밀림"을 봅니다. 보정 근거(11곡)는 `GridFitAdvisor.cs` 머리 주석에 있습니다.
 * ⚠️ **자동 BPM 의 iBMSC 값은 일부러 원본 그대로입니다**:
@@ -151,3 +154,13 @@ muse dash bms editer/
 | **[`build_release.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/build_release.bat)** | [`publish/release/muse dash 2 bms editer 2.exe`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/publish/release/muse%20dash%202%20bms%20editer%202.exe) | **[2번: 릴리즈용]** 블루 아이콘 + 외부 `note_icons` 폴더 세트 패키징 |
 | **[`build_publish.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/build_publish.bat)** | 둘 다 | 기존 산출물 삭제 후 1번과 2번을 순차적으로 클린 패키징 |
 | **[`run_personal.bat`](file:///h:/source/repos/muse%20dash%202%20bms%20editer/run_personal.bat)** | 실행 | 1번 개인용 exe를 바로 실행 (없으면 자동 빌드 후 실행) |
+
+---
+
+## 7. 검증 현황 & 문서 점검 체크리스트
+
+* **현재 버전**: v0.1.5 (`.csproj` 의 `Version`). **테스트 462개 전부 통과** (2026-11-18, `dotnet test "muse dash bms editer.slnx"`).
+  일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
+* **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,
+  버전·테스트 수가 바뀌면 `docs/issues/known_issues.md` 머리말과 이 절을 함께 갱신하십시오 (이전에 224개로 굳어 있던 적이 있습니다).
+* **점검 요청의 범위**: "문서/코드를 봐 달라"는 요청은 문서를 코드에 맞추는 일입니다. 찾은 버그는 `docs/issues/` 에 적기만 하고, 코드 수정은 먼저 확인받으십시오.

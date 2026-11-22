@@ -111,7 +111,7 @@
 * **지금** — `crash.log` 를 **exe 폴더**(`AppDomain.CurrentDomain.BaseDirectory`)에 씁니다.
   * `Program Files` 처럼 쓰기 금지된 곳이면 `File.WriteAllText` 가 **`catch` 안에서** 예외를 던져 **원래 예외까지 가립니다.**
   * 매번 덮어써서 한 번치만 남고, `Main` 까지 올라온 예외만 적힙니다.
-* **고칠 방향** — `%LocalAppData%\bms editer\logs\crash-yyyyMMdd-HHmmss.log` 에 쓰고, 쓰기 실패는 삼킵니다. S-1 처리기에서 씁니다.
+* **고칠 방향** (✅ 구현됨 — 폴더는 `muse dash bms editer`, 최근 20개 유지) — `%LocalAppData%\muse dash bms editer\logs\crash-yyyyMMdd-HHmmss.log` 에 쓰고, 쓰기 실패는 삼킵니다. S-1 처리기에서 씁니다.
   버전 · 열려 있던 파일 경로 · 마지막으로 누른 명령을 한 줄씩 같이 적으면 제보를 받았을 때 재현이 쉽습니다.
 
 ### S-4. `.bak` 이 한 벌뿐이다

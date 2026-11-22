@@ -11,6 +11,10 @@ namespace bms_editer.Services;
 // 기록을 남기다 실패해도 원래 오류를 가리면 안 되므로 여기서 나는 예외는 전부 삼킨다.
 public static class CrashLog
 {
+    // 원본의 이름을 그대로 두어 upstream 코드가 바뀌지 않고 이 포크의 폴더를 가리키게 한다.
+    public const string AppDataFolderName = AppIdentity.DataFolderName;
+    public const int MaxLogFiles = 20;
+
     public static string Folder => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         AppIdentity.DataFolderName,
@@ -28,11 +32,23 @@ public static class CrashLog
             var version = typeof(CrashLog).Assembly.GetName().Version;
 
             File.AppendAllText(path, $"[{source}] v{version}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+            TrimOldLogs();
             return path;
         }
         catch (Exception)
         {
             return null;
         }
+    }
+
+    private static void TrimOldLogs()
+    {
+        var files = Directory.GetFiles(Folder, "crash-*.log");
+        if (files.Length <= MaxLogFiles)
+            return;
+
+        Array.Sort(files, StringComparer.Ordinal);
+        for (var i = 0; i < files.Length - MaxLogFiles; i++)
+            File.Delete(files[i]);
     }
 }

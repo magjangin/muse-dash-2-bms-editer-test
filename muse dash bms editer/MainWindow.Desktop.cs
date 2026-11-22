@@ -41,6 +41,25 @@ public partial class MainWindow
         AddHandler(DragDrop.DropEvent, OnWindowDrop);
 
         Activated += OnWindowActivated;
+        App.ExternalOpenRequested += OnExternalOpenRequested;
+        Closed += (_, _) => App.ExternalOpenRequested -= OnExternalOpenRequested;
+    }
+
+    private void OnExternalOpenRequested(string? filePath)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
+
+            Activate();
+
+            // 이미 작업 중인 창이므로 저장 안 한 내용이 있으면 확인을 받는다(실행 직후 인자 열기와 다르다).
+            if (!string.IsNullOrWhiteSpace(filePath)
+                && FolderMedia.ChartExtensions.Contains(Path.GetExtension(filePath), StringComparer.OrdinalIgnoreCase)
+                && DataContext is MainWindowViewModel vm)
+                await OpenChartPathAsync(vm, filePath);
+        });
     }
 
     // 창이 뜬 직후 한 번. 복구를 먼저 묻고, 복구하지 않았을 때만 실행 인자의 파일을 연다.
@@ -214,6 +233,10 @@ public partial class MainWindow
         {
             if (!await vm.LoadOggAsync(first))
                 await ConfirmWindow.ShowMessageAsync(this, $"OGG를 불러오지 못했습니다.\n\n{vm.LastErrorMessage}", "OGG 로드 실패");
+        }
+        else if (FolderMedia.VideoExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            vm.LoadVideo(first);
         }
         else if (string.Equals(extension, ".wav", StringComparison.OrdinalIgnoreCase))
         {

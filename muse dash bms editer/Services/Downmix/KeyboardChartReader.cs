@@ -39,8 +39,8 @@ public static class KeyboardChartReader
         if (!File.Exists(filePath))
             return (ReadLines(Array.Empty<string>(), filePath), BmsParser.Parse(filePath));
 
-        var (lines, encoding, directory, mediaPathIndex) = BmsParser.ReadLinesWithMetadata(filePath);
-        return (ReadLines(lines, filePath), BmsParser.ParseLines(lines, encoding, directory, mediaPathIndex));
+        var (lines, encoding, newLine, directory, mediaPathIndex) = BmsParser.ReadLinesWithMetadata(filePath);
+        return (ReadLines(lines, filePath), BmsParser.ParseLines(lines, encoding, directory, mediaPathIndex, newLine));
     }
 
     internal static KeyboardChart ReadLines(string[] lines, string filePath)
@@ -157,13 +157,15 @@ public static class KeyboardChartReader
         // 그 게임이 안 읽는 채널에서 버린 노트 수. 왜 노트 수가 줄었는지 알려주는 데 쓴다.
         var ignoredByGame = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
+        var has3DigitWav = header.WavKeyLength >= 3;
         foreach (var (measure, channel, data) in DataLinesInOrder(lines))
         {
-            var slots = data.Length / header.WavKeyLength;
+            var chunkSize = BmsParser.DetermineChunkSize(data, has3DigitWav, header.WavTexts);
+            var slots = data.Length / chunkSize;
             if (slots == 0)
                 continue;
 
-            string Code(int slot) => data.Substring(slot * header.WavKeyLength, header.WavKeyLength);
+            string Code(int slot) => data.Substring(slot * chunkSize, chunkSize);
 
             if (!KeyChannelsLeftToRight.Contains(channel))
             {

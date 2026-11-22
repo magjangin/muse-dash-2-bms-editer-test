@@ -1,6 +1,9 @@
 using System;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using bms_editer.Services;
@@ -9,6 +12,9 @@ namespace bms_editer;
 
 internal class Program
 {
+    private const string SingleInstanceMutexName = @"Local\MuseDashBmsEditer_SingleInstance";
+    private const string SingleInstancePipeName = "MuseDashBmsEditer_IpcPipe";
+
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
@@ -32,8 +38,19 @@ internal class Program
 
         try
         {
-            App.StartupFilePath = args.FirstOrDefault(IsChartFile);
+            var startupPath = args.FirstOrDefault(IsChartFile);
+
+            using var mutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out var createdNew);
+            if (!createdNew && TryForwardToRunningInstance(startupPath))
+                return;
+
+            using var pipeCts = new CancellationTokenSource();
+            if (createdNew)
+                StartSingleInstanceServer(pipeCts.Token);
+
+            App.StartupFilePath = startupPath;
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            pipeCts.Cancel();
         }
         catch (Exception ex)
         {
@@ -41,6 +58,55 @@ internal class Program
             Console.Error.WriteLine(ex);
             throw;
         }
+    }
+
+    private static bool TryForwardToRunningInstance(string? filePath)
+    {
+        try
+        {
+            using var client = new NamedPipeClientStream(".", SingleInstancePipeName, PipeDirection.Out);
+            client.Connect(timeout: 1000);
+            using var writer = new StreamWriter(client, Encoding.UTF8, leaveOpen: true);
+            writer.Write(filePath ?? "");
+            writer.Flush();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static void StartSingleInstanceServer(CancellationToken cancellationToken)
+    {
+        _ = Task.Run(async () =>
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await using var server = new NamedPipeServerStream(
+                        SingleInstancePipeName,
+                        PipeDirection.In,
+                        1,
+                        PipeTransmissionMode.Byte,
+                        PipeOptions.Asynchronous);
+
+                    await server.WaitForConnectionAsync(cancellationToken);
+                    using var reader = new StreamReader(server, Encoding.UTF8, leaveOpen: true);
+                    var path = await reader.ReadToEndAsync(cancellationToken);
+                    App.RaiseExternalOpenRequested(string.IsNullOrWhiteSpace(path) ? null : path);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception)
+                {
+                    // 파이프 일시 오류는 다음 연결을 계속 받는다.
+                }
+            }
+        }, cancellationToken);
     }
 
     // 탐색기 연결로 넘어온 인자 중 실제 차트 파일만 골라낸다.

@@ -482,6 +482,17 @@ public sealed class AutoSaveAndSettingsTests : IDisposable
         window.Close();
     });
 
+    [Fact]
+    public void UI_예외_기록은_쿨다운_동안_반복되지_않는다()
+    {
+        var last = long.MinValue;
+
+        Assert.True(bms_editer.App.ShouldRecordUiException(1000, ref last, 5000));
+        Assert.False(bms_editer.App.ShouldRecordUiException(1016, ref last, 5000));
+        Assert.False(bms_editer.App.ShouldRecordUiException(5999, ref last, 5000));
+        Assert.True(bms_editer.App.ShouldRecordUiException(6000, ref last, 5000));
+    }
+
     private static AutoSaveMeta Meta(DateTime? at = null) =>
         new(null, "base.bms", at ?? DateTime.UtcNow, 0, Encoding.UTF8.CodePage, false, "t");
 }
