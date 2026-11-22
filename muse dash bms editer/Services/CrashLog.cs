@@ -41,14 +41,29 @@ public static class CrashLog
         }
     }
 
+    // 오래된 기록 정리는 덤이다. 여기서 실패했다고(다른 창이 그 파일을 열고 있음 등)
+    // 방금 쓴 기록까지 "못 썼다"(null)로 알리면 사용자에게 경로가 안 보인다.
+    // 그래서 정리 실패는 Write 의 결과에 섞지 않고, 한 파일이 안 지워져도 나머지는 지운다.
     private static void TrimOldLogs()
     {
-        var files = Directory.GetFiles(Folder, "crash-*.log");
+        string[] files;
+        try
+        {
+            files = Directory.GetFiles(Folder, "crash-*.log");
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
         if (files.Length <= MaxLogFiles)
             return;
 
         Array.Sort(files, StringComparer.Ordinal);
         for (var i = 0; i < files.Length - MaxLogFiles; i++)
-            File.Delete(files[i]);
+        {
+            try { File.Delete(files[i]); }
+            catch (Exception) { /* 다음 파일로 */ }
+        }
     }
 }

@@ -33,6 +33,8 @@ if (Test-Path $iconsSrc) {
         New-Item -ItemType Directory -Path $iconsDst -Force | Out-Null
     }
     Copy-Item -Path "$iconsSrc/*" -Destination $iconsDst -Recurse -Force
+} else {
+    Write-Host "[경고] $iconsSrc 가 없어 note_icons 폴더 없이 패키징했습니다. 노트가 단색 사각형으로만 보입니다." -ForegroundColor Yellow
 }
 
 Write-Host "`n========================================================" -ForegroundColor Green

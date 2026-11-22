@@ -13,6 +13,13 @@ if (Test-Path $targetDir) {
     Remove-Item -Path $targetDir -Recurse -Force
 }
 
+# 1-1. 내장할 그림이 없으면 알린다. 빌드는 되지만 노트가 단색 사각형으로만 보이는 exe 가 된다.
+#      (note_icons 는 git 에서 빠져 있고, 뮤즈 대시 2 그림은 따로 뽑아 넣어야 한다)
+$iconsSrc = "muse dash bms editer/note_icons"
+if (-not (Test-Path $iconsSrc) -or -not (Get-ChildItem -Path $iconsSrc -Filter *.png -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+    Write-Host "[경고] $iconsSrc 에 PNG 가 없습니다. 노트 그림 없이 빌드합니다 (1번 규칙: 에셋 100% 내장 미충족)." -ForegroundColor Yellow
+}
+
 # 2. 1번 개인용 빌드 실행 (EmbedNoteIcons=true, AssemblyName="muse dash 2 bms editer 1")
 Write-Host "[빌드] 1번 개인용 exe (에셋 내장 + 1번 골드 아이콘) 패키징 중..." -ForegroundColor Yellow
 dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=personal

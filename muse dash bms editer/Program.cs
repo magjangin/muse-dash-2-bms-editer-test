@@ -12,8 +12,13 @@ namespace bms_editer;
 
 internal class Program
 {
-    private const string SingleInstanceMutexName = @"Local\MuseDashBmsEditer_SingleInstance";
-    private const string SingleInstancePipeName = "MuseDashBmsEditer_IpcPipe";
+    private const string SingleInstanceMutexName = @"Local\" + AppIdentity.SingleInstanceName + "_SingleInstance";
+
+    // 뮤텍스는 Local\ 이라 로그인 세션마다 따로지만 파이프 이름은 PC 전체에서 하나다.
+    // 세션 번호를 붙이지 않으면 다른 계정이 먼저 띄운 에디터가 파이프를 쥐고 있어
+    // 이쪽 서버가 만들어지지 않는다.
+    private static readonly string SingleInstancePipeName =
+        $"{AppIdentity.SingleInstanceName}_IpcPipe_{System.Diagnostics.Process.GetCurrentProcess().SessionId}";
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -104,6 +109,10 @@ internal class Program
                 catch (Exception)
                 {
                     // 파이프 일시 오류는 다음 연결을 계속 받는다.
+                    // 같은 오류가 곧바로 되풀이되면(이름을 남이 쥐고 있음 등) 쉬지 않고 돌며
+                    // CPU 한 코어를 다 먹으므로 잠깐 쉬었다 다시 연다.
+                    try { await Task.Delay(500, cancellationToken); }
+                    catch (OperationCanceledException) { break; }
                 }
             }
         }, cancellationToken);

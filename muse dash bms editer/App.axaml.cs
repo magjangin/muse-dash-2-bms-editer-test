@@ -12,9 +12,45 @@ public partial class App : Application
     // 탐색기에서 BMS 파일을 더블클릭해 실행됐을 때 그 파일 경로. Program.Main 이 채운다.
     public static string? StartupFilePath { get; set; }
 
-    public static event System.Action<string?>? ExternalOpenRequested;
+    private static readonly object ExternalOpenLock = new();
+    private static System.Action<string?>? _externalOpenRequested;
+    private static string? _pendingExternalOpen;
 
-    public static void RaiseExternalOpenRequested(string? filePath) => ExternalOpenRequested?.Invoke(filePath);
+    // 단일 인스턴스 파이프는 Avalonia 를 띄우기 전에 열린다. 창이 아직 구독하기 전에
+    // 두 번째 실행이 경로를 넘기면 예전에는 아무 말 없이 버려졌다. 받는 쪽이 없으면
+    // 마지막 경로 하나를 맡아 두었다가 창이 시작을 마친 뒤 연다.
+    public static event System.Action<string?>? ExternalOpenRequested
+    {
+        add { lock (ExternalOpenLock) _externalOpenRequested += value; }
+        remove { lock (ExternalOpenLock) _externalOpenRequested -= value; }
+    }
+
+    public static void RaiseExternalOpenRequested(string? filePath)
+    {
+        System.Action<string?>? handler;
+        lock (ExternalOpenLock)
+        {
+            handler = _externalOpenRequested;
+            if (handler is null)
+            {
+                if (!string.IsNullOrWhiteSpace(filePath))
+                    _pendingExternalOpen = filePath;
+                return;
+            }
+        }
+
+        handler(filePath);
+    }
+
+    public static string? TakePendingExternalOpen()
+    {
+        lock (ExternalOpenLock)
+        {
+            var path = _pendingExternalOpen;
+            _pendingExternalOpen = null;
+            return path;
+        }
+    }
 
     public override void Initialize()
     {

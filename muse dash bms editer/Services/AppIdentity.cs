@@ -17,4 +17,9 @@ public static class AppIdentity
     public const string FileProgId = "MuseDash2Bms.Chart";
 
     public const string FileTypeName = "Muse Dash 2 BMS 차트";
+
+    // 단일 인스턴스용 뮤텍스·파이프 이름의 앞부분. 원본은 "MuseDashBmsEditer".
+    // 원본과 같으면 뮤즈 대시 1 에디터가 떠 있을 때 이 에디터를 켜도 창이 안 뜨고
+    // 차트가 뮤즈 대시 1 에디터로 넘어간다.
+    public const string SingleInstanceName = "MuseDash2BmsEditer";
 }
