@@ -28,6 +28,8 @@
   - 사용자 데이터 폴더 `%LocalAppData%\muse dash 2 bms editer\` (원본: `muse dash bms editer`) — 설정·자동 저장·백업·노트 그림·크래시 기록
   - `.bms` 파일 연결 ProgId `MuseDash2Bms.Chart` (원본: `MuseDashBms.Chart`) — `OpenWithProgids` 에 등록하며 기존 기본값을 덮어쓰지 않음
   - exe 이름 `muse dash 2 bms editer 1/2.exe`, 창 제목 `… - muse dash 2 bms editer (1. 개인용)`
+  - 단일 인스턴스 뮤텍스·파이프 이름 앞부분 `MuseDash2BmsEditer` (원본: `MuseDashBmsEditer`) — 같으면 뮤즈 대시 1 에디터가 떠 있을 때 이 에디터를 켜도 창이 안 뜨고 차트가 뮤즈 대시 1 에디터로 넘어갑니다.
+  - 원본 코드가 쓰는 `CrashLog.AppDataFolderName` 은 `AppIdentity.DataFolderName` 을 가리키게 해 두었습니다. upstream 을 받을 때 **새로 생긴 이름 상수(폴더·뮤텍스·파이프·ProgId·레지스트리 키)가 원본 값을 박고 있지 않은지** 꼭 확인하십시오.
 * **일부러 그대로 둔 것**: 프로젝트 폴더·`.csproj`·`.slnx` 이름(`muse dash bms editer`)과 C# 네임스페이스(`bms_editer`). 바꾸면 `upstream` 을 받아올 때마다 모든 파일이 이름 바꾸기 충돌을 냅니다.
 * **아직 원본 그대로인 것**: `docs/` 의 뮤즈 대시 1 설명, `Profiles/*.json` 의 게임 규칙. (앱 아이콘과 `README.md` 는 뮤즈 대시 2 전용으로 갱신됨 — 골드 `1` 개인용 / 블루 `2` 릴리즈용 뱃지 규칙 유지)
 * `note_icons/`(게임 추출 스프라이트)는 git 에서 제외라 복제로는 따라오지 않습니다. 뮤즈 대시 1 그림이므로 뮤즈 대시 2 그림을 따로 뽑아 넣어야 합니다.
@@ -96,6 +98,8 @@ muse dash bms editer/
 
 7. **줄바꿈 보존**: 파서가 첫 `\n` 앞의 `\r` 유무로 원본 줄바꿈을 감지해 `BmsChart.NewLine` 에 담고, `BmsWriter` 가 그대로 되돌려 씁니다. 저장만 해도 LF 파일이 CRLF 로 바뀌어 diff 가 전부 달라지는 일을 막습니다.
 8. **단일 인스턴스 & 마디 상한**: 탐색기에서 차트를 더블클릭해도 창이 새로 뜨지 않고 이미 떠 있는 창으로 경로가 넘어갑니다(`Program.cs` 의 뮤텍스+파이프). 마디 번호는 `BmsParser.MaxMeasureNumber`(9999) 를 넘으면 노트로 읽지 않고 보존줄로 넘겨, 줄 하나 때문에 파일 전체를 못 여는 일을 막습니다. 단일 인스턴스로 넘어온 경로는 **이미 작업 중인 창**이 받으므로 `OpenChartPathAsync` 로 열어 저장 확인을 거치고, 차트 확장자(.bms/.bme/.bml)가 아니면 무시합니다(실행 직후 인자 열기만 확인 없이 `OpenExternalFileAsync`).
+   - (이 포크에서 보강) 파이프 이름에 **로그인 세션 번호**를 붙입니다. 뮤텍스는 `Local\` 이라 세션마다 따로인데 파이프는 PC 전체 이름이라, 다른 계정이 먼저 띄우면 이쪽 서버가 만들어지지 않고 예외 루프가 CPU 한 코어를 먹었습니다. 오류 시에는 500ms 쉬었다 다시 엽니다.
+   - 창이 구독하기 전에 넘어온 경로는 `App.TakePendingExternalOpen()` 에 맡겨 두고, 시작(복구 질문·실행 인자 열기)이 끝나기 전이나 다른 외부 열기 처리 중에 온 경로는 마지막 하나만 미뤄 두었다가 엽니다. 예전에는 버려지거나 복구 질문과 저장 확인 창이 겹쳤습니다.
 
 ---
 
@@ -141,6 +145,9 @@ muse dash bms editer/
 * ⚠️ **자동 BPM 의 iBMSC 값은 일부러 원본 그대로입니다**:
   - [`IbmscBpmDetector`](muse%20dash%20bms%20editer/Services/IbmscBpmDetector.cs) 는 iBMSC 와 같은 숫자를 보려고 옮긴 것이라, cos 만 쓰는 점수 식·저음 필터의 채널 오해까지 그대로 둡니다. "고치면" 비교 기준이 사라집니다. 소수점은 [`PreciseBpmDetector`](muse%20dash%20bms%20editer/Services/PreciseBpmDetector.cs) 몫입니다.
 
+* ❌ **1번/2번을 그림 리소스 유무로만 가르기**:
+  - `note_icons` 가 없는 PC 에서 1번 프로필로 빌드하면 exe 아이콘은 골드 1인데 창 제목·창 아이콘은 "2. 릴리즈용"으로 떴습니다. 지금은 `EmbedNoteIcons=true` 일 때 csproj 가 `AssemblyMetadata("BmsEditerEdition", "personal")` 를 넣고 `MainWindowViewModel.DetectPersonalEdition` 이 그것을 먼저 봅니다(표식 없는 빌드만 리소스로 판정).
+
 * ❌ **XAML 에 `NumericUpDown` 을 그대로 쓰기**:
   - Avalonia 12.0.5 의 자동화 연결이 `decimal` 을 UIA 로 못 넘겨, 화면 낭독기·접근성 도구가 붙어 있으면 값이 바뀔 때 예외가 납니다(차트를 여는 도중 문서가 반쯤만 들어옴). 평소에는 안 보입니다. [`NumberBox`](muse%20dash%20bms%20editer/Views/Controls/NumberBox.cs) 를 쓰십시오.
 
@@ -159,7 +166,9 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.1.5 (`.csproj` 의 `Version`). **테스트 462개 전부 통과** (2026-11-18, `dotnet test "muse dash bms editer.slnx"`).
+* **현재 버전**: v0.2.0 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.5). **테스트 466개 전부 통과** (2026-11-22, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `17772e6` 까지 병합됨.
+  Debug exe 로 단일 인스턴스 실동작 확인(두 번째 실행은 첫 창으로 넘기고 바로 종료, 대기 중 CPU 0). `build_publish.ps1` 로 1번·2번을 새로 빌드해 창 제목 `(1. 개인용)`/`(2. 릴리즈용)` 확인.
+  ⚠️ 이 PC 에는 아직 뮤즈 대시 2 `note_icons` 가 없어 **1번도 그림 없이** 빌드됩니다(스크립트가 노란 경고를 띄움). 1번 규칙(에셋 100% 내장)은 그림을 넣은 뒤 다시 빌드해야 충족됩니다.
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
 * **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,
   버전·테스트 수가 바뀌면 `docs/issues/known_issues.md` 머리말과 이 절을 함께 갱신하십시오 (이전에 224개로 굳어 있던 적이 있습니다).
