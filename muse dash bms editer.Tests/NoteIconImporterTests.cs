@@ -85,6 +85,20 @@ public sealed class NoteIconImporterTests : IDisposable
     }
 
     [Fact]
+    public void 사용자_그림_폴더가_아닌_곳으로_가져오면_마지막_폴더_기록을_건드리지_않는다()
+    {
+        var recordFile = Path.Combine(Path.GetDirectoryName(NoteIconImporter.UserFolder)!, "note_icon_source.txt");
+        var before = File.Exists(recordFile) ? File.ReadAllText(recordFile) : null;
+
+        var (source, target) = Folders("no-record");
+        WritePng(Path.Combine(source, "장면01", "0105", "0105_road.png"), 10, 10);
+        NoteIconImporter.Import(source, target);
+
+        var after = File.Exists(recordFile) ? File.ReadAllText(recordFile) : null;
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
     public void 변형이_여럿이면_origin_Miku_hexie_순으로_고른다()
     {
         var (source, target) = Folders("variants");

@@ -167,15 +167,35 @@ public static class NoteIconImporter
         written += ImportSimple(pngs, targetFolder, SceneChangePattern, n => "0004", Array.Empty<string>(), "씬 전환", warnings, sceneChange: true);
         written += ImportBosses(sourceFolder, targetFolder, warnings, progress);
 
-        try
+        // 사용자 그림 폴더로 가져올 때만 적는다. 다른 대상(테스트의 임시 폴더 등)으로 가져온 것까지 적으면
+        // 단위 테스트를 돌릴 때마다 사용자의 기록이 곧 지워질 임시 경로로 덮어써진다.
+        if (IsSamePath(targetFolder, UserFolder))
         {
-            File.WriteAllText(LastSourceFile, sourceFolder);
-        }
-        catch (Exception)
-        {
+            try
+            {
+                File.WriteAllText(LastSourceFile, sourceFolder);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         return new NoteIconImportResult(written, warnings);
+    }
+
+    private static bool IsSamePath(string a, string b)
+    {
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     // 장면NN\XXXX\XXXX_road|air[__변형].png → 일반 노트 그림.
