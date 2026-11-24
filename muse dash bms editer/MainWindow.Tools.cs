@@ -106,6 +106,8 @@ public partial class MainWindow
 
             if (_toolWindows.TryGetValue(typeof(TWindow), out var existing))
             {
+                if (existing.WindowState == WindowState.Minimized)
+                    existing.WindowState = WindowState.Normal;
                 existing.Activate();
                 return;
             }

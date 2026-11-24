@@ -94,17 +94,25 @@ public sealed partial class OggAudioPlayer : IDisposable
 
         ThrowIfFailed(WaveOutOpen(out _waveOut, -1, ref format, IntPtr.Zero, IntPtr.Zero, 0));
 
-        _dataHandle = GCHandle.Alloc(_pcmBytes, GCHandleType.Pinned);
-        _header = new WaveHeader
+        try
         {
-            Data = _dataHandle.AddrOfPinnedObject() + startByte,
-            BufferLength = byteCount,
-        };
-        _headerHandle = GCHandle.Alloc(_header, GCHandleType.Pinned);
+            _dataHandle = GCHandle.Alloc(_pcmBytes, GCHandleType.Pinned);
+            _header = new WaveHeader
+            {
+                Data = _dataHandle.AddrOfPinnedObject() + startByte,
+                BufferLength = byteCount,
+            };
+            _headerHandle = GCHandle.Alloc(_header, GCHandleType.Pinned);
 
-        ThrowIfFailed(WaveOutPrepareHeader(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
-        _prepared = true;
-        ThrowIfFailed(WaveOutWrite(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
+            ThrowIfFailed(WaveOutPrepareHeader(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
+            _prepared = true;
+            ThrowIfFailed(WaveOutWrite(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
+        }
+        catch
+        {
+            Stop();
+            throw;
+        }
     }
 
     public void Stop()
@@ -132,9 +140,13 @@ public sealed partial class OggAudioPlayer : IDisposable
 
     private int SecondsToByteOffset(double seconds, int blockAlign)
     {
+        if (blockAlign <= 0 || !double.IsFinite(seconds))
+            return 0;
+
         var clampedSeconds = Math.Clamp(seconds, 0, DurationSeconds);
-        var byteOffset = (int)(clampedSeconds * _sampleRate * blockAlign);
-        return Math.Clamp(byteOffset - (byteOffset % blockAlign), 0, _pcmBytes.Length);
+        var byteOffset = (long)(clampedSeconds * _sampleRate * blockAlign);
+        var aligned = byteOffset - (byteOffset % blockAlign);
+        return (int)Math.Clamp(aligned, 0L, _pcmBytes.Length);
     }
 
     private static void ThrowIfFailed(int result)

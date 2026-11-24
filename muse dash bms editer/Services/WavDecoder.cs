@@ -59,6 +59,9 @@ public static class WavDecoder
 
                 if (chunkId == "fmt ")
                 {
+                    if (safeChunkSize < 16)
+                        return null;
+
                     audioFormat = reader.ReadInt16();
                     channels = reader.ReadInt16();
                     sampleRate = reader.ReadInt32();
@@ -69,11 +72,11 @@ public static class WavDecoder
                     var readBytes = 16;
 
                     // WAVE_FORMAT_EXTENSIBLE (0xFFFE) 처리
-                    if (audioFormat == -2 || audioFormat == unchecked((short)0xFFFE))
+                    if ((audioFormat == -2 || audioFormat == unchecked((short)0xFFFE)) && safeChunkSize >= 18)
                     {
                         var extraSize = reader.ReadInt16();
                         readBytes += 2;
-                        if (extraSize >= 22)
+                        if (extraSize >= 22 && safeChunkSize >= 40)
                         {
                             reader.ReadInt16(); // validBitsPerSample
                             reader.ReadInt32(); // channelMask
@@ -86,16 +89,28 @@ public static class WavDecoder
 
                     var remaining = safeChunkSize - readBytes;
                     if (remaining > 0)
-                        reader.ReadBytes(remaining);
+                    {
+                        if (stream.CanSeek)
+                            stream.Seek(remaining, SeekOrigin.Current);
+                        else
+                            reader.ReadBytes(remaining);
+                    }
+
+                    if (dataBytes is not null)
+                        break;
                 }
                 else if (chunkId == "data")
                 {
                     dataBytes = reader.ReadBytes(safeChunkSize);
-                    break;
+                    if (channels > 0 && sampleRate > 0)
+                        break;
                 }
                 else
                 {
-                    reader.ReadBytes(safeChunkSize);
+                    if (stream.CanSeek)
+                        stream.Seek(safeChunkSize, SeekOrigin.Current);
+                    else
+                        reader.ReadBytes(safeChunkSize);
                 }
 
                 // RIFF 청크 2바이트 워드 패딩 처리
@@ -222,8 +237,15 @@ public static class WavDecoder
         return result;
     }
 
+    // 악성/손상 WAV 헤더(예: sampleRate = 1)로 인한 초대형 리샘플링 할당(OOM)을 막는다.
+    private const int MinSupportedSampleRate = 1000;
+    private const int MaxResampledFrames = TargetSampleRate * 60 * 30; // 최대 30분
+
     private static short[] ResampleToStereo44100(float[] source, int sourceChannels, int sourceSampleRate)
     {
+        if (sourceChannels <= 0 || sourceSampleRate < MinSupportedSampleRate)
+            return Array.Empty<short>();
+
         var sourceFrames = source.Length / sourceChannels;
         if (sourceFrames == 0) return Array.Empty<short>();
 
@@ -234,8 +256,14 @@ public static class WavDecoder
         }
         else
         {
-            targetFrames = (int)Math.Round((double)sourceFrames * TargetSampleRate / sourceSampleRate);
+            var computed = Math.Round((double)sourceFrames * TargetSampleRate / sourceSampleRate);
+            if (!double.IsFinite(computed) || computed <= 0 || computed > MaxResampledFrames)
+                return Array.Empty<short>();
+            targetFrames = (int)computed;
         }
+
+        if (targetFrames > MaxResampledFrames)
+            return Array.Empty<short>();
 
         var output = new short[targetFrames * TargetChannels];
 

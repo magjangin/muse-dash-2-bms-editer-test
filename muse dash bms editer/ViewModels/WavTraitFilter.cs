@@ -22,6 +22,8 @@ public sealed class WavTraitFilter : ObservableObject
     private string _kindFilter = All;
     private string _positionFilter = All;
     private string _speedFilter = All;
+    private int? _sceneFilterNumber;
+    private int? _speedFilterNumber;
 
     private IReadOnlyList<string> _sceneOptions = [All];
     private IReadOnlyList<string> _kindOptions = [All];
@@ -42,7 +44,14 @@ public sealed class WavTraitFilter : ObservableObject
     public string SceneFilter
     {
         get => _sceneFilter;
-        set { if (value is not null && SetProperty(ref _sceneFilter, value)) _changed(); }
+        set
+        {
+            if (value is not null && SetProperty(ref _sceneFilter, value))
+            {
+                _sceneFilterNumber = ParseSceneNumber(value);
+                _changed();
+            }
+        }
     }
 
     public string KindFilter
@@ -60,7 +69,14 @@ public sealed class WavTraitFilter : ObservableObject
     public string SpeedFilter
     {
         get => _speedFilter;
-        set { if (value is not null && SetProperty(ref _speedFilter, value)) _changed(); }
+        set
+        {
+            if (value is not null && SetProperty(ref _speedFilter, value))
+            {
+                _speedFilterNumber = ParseSpeedNumber(value);
+                _changed();
+            }
+        }
     }
 
     // 값이 하나도 없는 분류는 드롭다운을 숨긴다.
@@ -77,6 +93,8 @@ public sealed class WavTraitFilter : ObservableObject
     public void Reset()
     {
         _sceneFilter = _kindFilter = _positionFilter = _speedFilter = All;
+        _sceneFilterNumber = null;
+        _speedFilterNumber = null;
         RaiseFilters();
     }
 
@@ -96,7 +114,14 @@ public sealed class WavTraitFilter : ObservableObject
         _sceneOptions = [All, .. traits.Where(t => t.Scene.HasValue).Select(t => t.Scene!.Value)
             .Distinct().Order().Select(WavSearch.SceneLabel)];
         _kindOptions = [All, .. traits.Where(t => t.Kind is not null).Select(t => t.Kind!).Distinct()];
-        _positionOptions = [All, .. new[] { "지상", "공중" }.Where(p => traits.Any(t => t.Position == p))];
+        var positions = traits.Where(t => t.Position is not null).Select(t => t.Position!).Distinct().ToList();
+        positions.Sort((a, b) =>
+        {
+            var rankA = a == "지상" ? 0 : a == "공중" ? 1 : 2;
+            var rankB = b == "지상" ? 0 : b == "공중" ? 1 : 2;
+            return rankA != rankB ? rankA.CompareTo(rankB) : StringComparer.CurrentCulture.Compare(a, b);
+        });
+        _positionOptions = [All, .. positions];
         _speedOptions = [All, .. traits.Where(t => t.Speed.HasValue).Select(t => t.Speed!.Value)
             .Distinct().Order().Select(speed => $"스피드{speed}")];
 
@@ -104,6 +129,8 @@ public sealed class WavTraitFilter : ObservableObject
         if (!_kindOptions.Contains(_kindFilter)) _kindFilter = All;
         if (!_positionOptions.Contains(_positionFilter)) _positionFilter = All;
         if (!_speedOptions.Contains(_speedFilter)) _speedFilter = All;
+        _sceneFilterNumber = ParseSceneNumber(_sceneFilter);
+        _speedFilterNumber = ParseSpeedNumber(_speedFilter);
 
         OnPropertyChanged(nameof(SceneOptions));
         OnPropertyChanged(nameof(KindOptions));
@@ -128,10 +155,25 @@ public sealed class WavTraitFilter : ObservableObject
         if (!IsActive)
             return true;
 
-        return (_sceneFilter == All || (traits.Scene is { } scene && WavSearch.SceneLabel(scene) == _sceneFilter)) &&
+        return (_sceneFilter == All || (traits.Scene is { } scene && (_sceneFilterNumber.HasValue ? scene == _sceneFilterNumber.Value : WavSearch.SceneLabel(scene) == _sceneFilter))) &&
                (_kindFilter == All || traits.Kind == _kindFilter) &&
                (_positionFilter == All || traits.Position == _positionFilter) &&
-               (_speedFilter == All || (traits.Speed is { } speed && $"스피드{speed}" == _speedFilter));
+               (_speedFilter == All || (traits.Speed is { } speed && (_speedFilterNumber.HasValue ? speed == _speedFilterNumber.Value : $"스피드{speed}" == _speedFilter)));
+    }
+
+    private static int? ParseSceneNumber(string filter)
+    {
+        if (filter == All) return null;
+        if (filter == "공통") return 0;
+        var suffix = filter.IndexOf("번 씬", StringComparison.Ordinal);
+        return suffix > 0 && int.TryParse(filter.AsSpan(0, suffix), out var num) ? num : null;
+    }
+
+    private static int? ParseSpeedNumber(string filter)
+    {
+        if (filter == All || !filter.StartsWith("스피드", StringComparison.Ordinal))
+            return null;
+        return int.TryParse(filter.AsSpan(3), out var speed) ? speed : null;
     }
 
     private void RaiseFilters()

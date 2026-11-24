@@ -117,7 +117,9 @@ public static class KeyboardChartReader
         {
             var match = DataLine.Match(lines[i].Trim());
             if (!match.Success
-                || !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var measure))
+                || !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var measure)
+                || measure < 0
+                || measure > BmsParser.MaxMeasureNumber)
             {
                 continue;
             }

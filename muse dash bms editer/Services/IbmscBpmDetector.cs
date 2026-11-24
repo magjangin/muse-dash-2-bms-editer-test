@@ -63,7 +63,7 @@ public static class IbmscBpmDetector
     // 원본 a(float[], float, int, int): 칸마다 Σ(|x|·2) / 칸 길이, 그다음 최댓값으로 나눈다.
     private static float[] BuildEnvelope(float[] samples, int window)
     {
-        var envelope = new float[(int)Math.Ceiling((float)samples.Length / window)];
+        var envelope = new float[(samples.Length + window - 1) / window];
         var index = 0;
         for (var start = 0; start < samples.Length; start += window)
         {

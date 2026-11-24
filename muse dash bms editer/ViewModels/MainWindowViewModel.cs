@@ -254,8 +254,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         // 가리키는 노트가 되살아나 소리 안 나는 유령 노트가 된다.
         WavList.CollectionChanged += (_, _) =>
         {
-            MarkDirty();
             InvalidateWavSnapshot();
+            if (_suppressWavCollectionSideEffects)
+                return;
+
+            MarkDirty();
             RecordHistory("키음 표 변경");
             RecomputeHolds();
             RefreshNoteIcons();
@@ -281,6 +284,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnBpmChanged(double value)
     {
+        if (!double.IsFinite(value) || value <= 0)
+        {
+            Bpm = 120.0;
+            return;
+        }
+
         Chart.Header.Bpm = value;
         MarkDirty();
         InvalidateTimeline();
@@ -437,11 +446,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     private bool _disposed;
+    private bool _suppressWavCollectionSideEffects;
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+
+        // 진행 중인 OGG/그림 백그라운드 작업의 결과는 버리고 누수를 막는다.
+        _oggLoadGeneration++;
+        _noteIconGeneration++;
 
         StopPlayback(resetCursor: false);
         _playbackTimer.Stop();
@@ -452,8 +466,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _audioPlayer?.Dispose();
         _keySoundPlayer.Dispose();
 
-        // 진행 중인 그림 읽기의 결과는 버린다.
-        _noteIconGeneration++;
         _noteIconCatalog.Dispose();
         DisposeRetiredNoteIconCatalogs();
     }

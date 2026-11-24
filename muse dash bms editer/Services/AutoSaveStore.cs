@@ -21,7 +21,8 @@ public sealed record AutoSaveMeta(
     int NoteCount,
     int CodePage,
     bool HasBom,
-    string Title);
+    string Title,
+    int SchemaVersion = 1);
 
 public sealed record AutoSaveEntry(string Id, string Folder, string ChartFile, AutoSaveMeta Meta);
 
@@ -192,8 +193,13 @@ public sealed class AutoSaveStore : IDisposable
         var fullPath = Path.GetFullPath(filePath);
 
         // 이름이 같은 차트가 곡 폴더마다 있으므로 전체 경로의 해시를 붙여 나눈다.
+        // 지나치게 긴 파일명이 Windows 경로 길이 한도를 넘지 않도록 앞 40자까지만 접두사로 쓴다.
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(fullPath.ToUpperInvariant()));
-        return Path.Combine(BackupRoot, $"{Path.GetFileNameWithoutExtension(fullPath)}-{Convert.ToHexString(hash, 0, 4)}");
+        var rawName = Path.GetFileNameWithoutExtension(fullPath);
+        var safeName = rawName.Length > 40 ? rawName[..40].TrimEnd(' ', '.') : rawName;
+        if (string.IsNullOrEmpty(safeName))
+            safeName = "chart";
+        return Path.Combine(BackupRoot, $"{safeName}-{Convert.ToHexString(hash, 0, 4)}");
     }
 
     public void Dispose()
@@ -263,21 +269,42 @@ public sealed class AutoSaveStore : IDisposable
     private static void PruneOldest(string[] oldestFirst, int keep)
     {
         for (var i = 0; i < oldestFirst.Length - keep; i++)
-            File.Delete(oldestFirst[i]);
+        {
+            try
+            {
+                File.Delete(oldestFirst[i]);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Debug.WriteLine($"오래된 파일 정리 실패: {ex.Message}");
+            }
+        }
     }
 
     private static void WriteAtomic(string path, string content)
     {
-        var temp = path + ".tmp";
-        using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
         {
-            writer.Write(content);
-            writer.Flush();
-            stream.Flush(flushToDisk: true);
-        }
+            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+            {
+                writer.Write(content);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
 
-        File.Move(temp, path, overwrite: true);
+            File.Move(temp, path, overwrite: true);
+            temp = null;
+        }
+        finally
+        {
+            if (temp is not null)
+            {
+                try { File.Delete(temp); }
+                catch { /* 임시 파일 정리 실패 무시 */ }
+            }
+        }
     }
 
     private static void TryDeleteDirectory(string folder)

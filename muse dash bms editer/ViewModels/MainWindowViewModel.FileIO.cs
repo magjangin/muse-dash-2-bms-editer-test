@@ -78,21 +78,22 @@ public sealed partial class MainWindowViewModel
         }
         catch (Exception ex)
         {
-            LastErrorMessage = ex.Message;
+            if (generation == _oggLoadGeneration && !_disposed)
+                LastErrorMessage = ex.Message;
             System.Diagnostics.Debug.WriteLine($"OGG 로드 실패: {ex.Message}");
             return false;
         }
         finally
         {
-            if (generation == _oggLoadGeneration)
+            if (generation == _oggLoadGeneration && !_disposed)
                 IsLoadingOgg = false;
         }
 
-        // 그사이 다른 음원을 열었다. 늦게 끝난 쪽이 최신 음원을 덮어쓰면 안 된다.
-        if (generation != _oggLoadGeneration)
+        // 그사이 다른 음원을 열었거나 새 파일/창 닫기가 일어났다. 늦게 끝난 쪽이 덮어쓰거나 누수되면 안 된다.
+        if (generation != _oggLoadGeneration || _disposed)
         {
             audioPlayer.Dispose();
-            return true;
+            return false;
         }
 
         StopPlayback(resetCursor: true);
@@ -130,7 +131,9 @@ public sealed partial class MainWindowViewModel
         if (!await ConfirmDiscardIfNeededAsync("현재 작업 중인 내용이 모두 사라집니다.\n새로 만들까요?"))
             return;
 
-        // 재생 중이던 배경 음원을 먼저 정리한다.
+        // 재생 중이던 배경 음원과 진행 중인 OGG 로딩을 먼저 정리한다.
+        _oggLoadGeneration++;
+        IsLoadingOgg = false;
         StopPlayback(resetCursor: true);
         _audioPlayer?.Dispose();
         _audioPlayer = null;
@@ -251,22 +254,32 @@ public sealed partial class MainWindowViewModel
         // 재생을 멈추지 않으면 앞 곡 음원이 계속 나오고, 앞 곡 노트 번호가 새 키음 표에서 엉뚱한 소리를 찾는다.
         StopPlayback(resetCursor: true);
 
-        ResetDocumentState();
+        _suppressWavCollectionSideEffects = true;
+        try
+        {
+            ResetDocumentState();
 
-        // 노트·보존줄·마디길이·BPM 변화·키음표 등 차트 안의 모든 컬렉션이 여기서 한꺼번에 옮겨진다.
-        Chart.ReplaceContentWith(parsed.Chart);
-        PullHeaderFromChart();
-        InvalidateTimeline();
-        MeasureCount = Chart.MeasureCount;
+            // 노트·보존줄·마디길이·BPM 변화·키음표 등 차트 안의 모든 컬렉션이 여기서 한꺼번에 옮겨진다.
+            Chart.ReplaceContentWith(parsed.Chart);
+            PullHeaderFromChart();
+            InvalidateTimeline();
+            MeasureCount = Chart.MeasureCount;
 
-        // 읽어낸 인코딩을 기억해 두었다가 저장할 때 그대로 되돌려 쓴다.
-        DocumentEncoding = parsed.Encoding;
+            // 읽어낸 인코딩을 기억해 두었다가 저장할 때 그대로 되돌려 쓴다.
+            DocumentEncoding = parsed.Encoding;
 
-        // 한 번에 갈아끼운다. 하나씩 Add 하면 항목마다 알림이 나가고,
-        // 통계·팔레트 창이 그때마다 전체 재집계를 돈다. (BulkObservableCollection 주석 참고)
-        WavList.ReplaceAll(parsed.WavItems);
+            // 한 번에 갈아끼운다. 하나씩 Add 하면 항목마다 알림이 나가고,
+            // 통계·팔레트 창이 그때마다 전체 재집계를 돈다. (BulkObservableCollection 주석 참고)
+            WavList.ReplaceAll(parsed.WavItems);
+        }
+        finally
+        {
+            _suppressWavCollectionSideEffects = false;
+        }
+
         _keySoundPlayer.ClearCache();
         _keySoundPlayer.PreloadAsync(Chart.WavTable.Values);
+        RefreshNoteIcons();
 
         if (WavList.Count > 0)
         {
@@ -276,7 +289,7 @@ public sealed partial class MainWindowViewModel
         CurrentFilePath = currentFilePath;
         LastErrorMessage = null;
 
-        // UI 렌더링 강제 업데이트 유도
+        // UI 렌더링 강제 업데이트 유도 (홀드 재계산 포함, 1회만 수행)
         NotifyNotesChanged();
 
         // 방금 읽어온 이 상태가 되돌리기의 바닥이다. 여기보다 더 거슬러 올라가면

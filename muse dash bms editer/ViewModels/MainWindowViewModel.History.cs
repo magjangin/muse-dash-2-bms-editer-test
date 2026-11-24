@@ -173,7 +173,15 @@ public sealed partial class MainWindowViewModel
             foreach (var (key, value) in snapshot.WavTable)
                 Chart.WavTable[key] = value;
 
-            WavList.ReplaceAll(snapshot.Wavs.Select(CloneWav));
+            _suppressWavCollectionSideEffects = true;
+            try
+            {
+                WavList.ReplaceAll(snapshot.Wavs.Select(CloneWav));
+            }
+            finally
+            {
+                _suppressWavCollectionSideEffects = false;
+            }
             InvalidateWavSnapshot();
             RefreshNoteIcons();
 

@@ -146,7 +146,8 @@ public static partial class BmsParser
             var bpmMatch = BpmRegex().Match(line);
             if (bpmMatch.Success)
             {
-                if (double.TryParse(bpmMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempBpm))
+                if (double.TryParse(bpmMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempBpm)
+                    && double.IsFinite(tempBpm) && tempBpm > 0)
                 {
                     parsedBpm = tempBpm;
                 }
@@ -157,7 +158,7 @@ public static partial class BmsParser
             if (extendedBpmMatch.Success)
             {
                 if (double.TryParse(extendedBpmMatch.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tableBpm)
-                    && tableBpm > 0)
+                    && double.IsFinite(tableBpm) && tableBpm > 0)
                 {
                     chart.BpmTable[extendedBpmMatch.Groups[1].Value.ToUpperInvariant()] = tableBpm;
                 }
@@ -198,7 +199,8 @@ public static partial class BmsParser
             var audioOffsetMatch = AudioOffsetRegex().Match(line);
             if (audioOffsetMatch.Success)
             {
-                if (double.TryParse(audioOffsetMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempOffset))
+                if (double.TryParse(audioOffsetMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempOffset)
+                    && double.IsFinite(tempOffset))
                     chart.Header.AudioOffsetMs = tempOffset;
                 continue;
             }
@@ -446,7 +448,8 @@ public static partial class BmsParser
         // 02: 마디 길이 배율. 슬롯이 아니라 실수 하나가 통째로 온다. (#00002:0.75)
         if (string.Equals(channel, "02", StringComparison.OrdinalIgnoreCase))
         {
-            if (double.TryParse(data, NumberStyles.Float, CultureInfo.InvariantCulture, out var length) && length > 0)
+            if (double.TryParse(data, NumberStyles.Float, CultureInfo.InvariantCulture, out var length)
+                && double.IsFinite(length) && length > 0)
                 chart.MeasureLengths[measure] = length;
             return;
         }
@@ -567,21 +570,29 @@ public static partial class BmsParser
     {
         guessed = false;
 
-        if (Path.IsPathRooted(mediaPath))
-            return mediaPath;
-
-        var directPath = Path.GetFullPath(Path.Combine(baseDirectory, mediaPath));
-        if (File.Exists(directPath))
-            return directPath;
-
-        var fileName = Path.GetFileName(mediaPath);
-        if (fileNameIndex.Value.TryGetValue(fileName, out var indexedPath))
+        try
         {
-            guessed = true;
-            return indexedPath;
-        }
+            if (Path.IsPathRooted(mediaPath))
+                return mediaPath;
 
-        return directPath;
+            var directPath = Path.GetFullPath(Path.Combine(baseDirectory, mediaPath));
+            if (File.Exists(directPath))
+                return directPath;
+
+            var fileName = Path.GetFileName(mediaPath);
+            if (!string.IsNullOrEmpty(fileName) && fileNameIndex.Value.TryGetValue(fileName, out var indexedPath))
+            {
+                guessed = true;
+                return indexedPath;
+            }
+
+            return directPath;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // 잘못된 경로 문자가 섞인 #WAV 줄 하나로 차트 열기 전체가 실패하지 않게 원문을 유지한다.
+            return mediaPath;
+        }
     }
 
     // ── 인코딩 감지 ────────────────────────────────────────────────────────────
@@ -621,10 +632,16 @@ public static partial class BmsParser
         return lines;
     }
 
+    private const long MaxChartFileBytes = 50L * 1024 * 1024;
+
     private static (string[] Lines, Encoding Encoding, string NewLine) ReadAllLines(
         string filePath, string directory, Lazy<Dictionary<string, string>> fileNameIndex)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+        var fileInfo = new FileInfo(filePath);
+        if (fileInfo.Length > MaxChartFileBytes)
+            throw new InvalidDataException($"BMS 파일 크기가 허용 한도({MaxChartFileBytes / (1024 * 1024)}MB)를 초과합니다.");
 
         var bytes = File.ReadAllBytes(filePath);
 
@@ -666,6 +683,21 @@ public static partial class BmsParser
         {
             text = new UTF8Encoding(false).GetString(bytes, 3, bytes.Length - 3);
             encoding = new UTF8Encoding(true);
+            return true;
+        }
+
+        if (bytes.Length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xFE && bytes[2] == 0x00 && bytes[3] == 0x00)
+        {
+            text = Encoding.UTF32.GetString(bytes, 4, bytes.Length - 4);
+            encoding = Encoding.UTF32;
+            return true;
+        }
+
+        if (bytes.Length >= 4 && bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0xFE && bytes[3] == 0xFF)
+        {
+            var utf32Be = new UTF32Encoding(bigEndian: true, byteOrderMark: true);
+            text = utf32Be.GetString(bytes, 4, bytes.Length - 4);
+            encoding = utf32Be;
             return true;
         }
 

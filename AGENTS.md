@@ -148,7 +148,7 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.1.5 (`.csproj` 의 `Version`). **테스트 464개 전부 통과** (2026-11-22, `dotnet test "muse dash bms editer.slnx"`).
+* **현재 버전**: v0.1.6 (`.csproj` 의 `Version`). **테스트 476개 전부 통과** (2026-11-24, `dotnet test "muse dash bms editer.slnx"`).
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
 * **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,
   버전·테스트 수가 바뀌면 `docs/issues/known_issues.md` 머리말과 이 절을 함께 갱신하십시오 (이전에 224개로 굳어 있던 적이 있습니다).

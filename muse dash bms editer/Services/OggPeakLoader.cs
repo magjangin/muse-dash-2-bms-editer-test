@@ -67,57 +67,47 @@ public static class OggPeakLoader
         // 버킷 크기를 정수 프레임 수로 고정하면(예: 44100/80 = 551.25 → 551) 피크 배열이
         // 곡 전체를 덮지 못한 채 타임라인 전체 폭에 늘어나 그려져서, 재생 시간에 비례하는
         // 어긋남이 쌓인다(44.1kHz 기준 약 0.045%, 2분 지점에서 50ms 이상).
-        // 그래서 프레임 절대 위치로 버킷을 직접 계산해, peaks[i]가 항상
-        // i * DurationSeconds / peakCount 시점에 정확히 대응하도록 한다.
-        long frameIndex = 0;
-        var bucketIndex = 0;
-        var frameInBucket = 0;
-        double sumSquares = 0;
-        var maxInBucket = 0f;
+        // 버킷 경계를 정수 나눗셈으로 미리 계산해 프레임당 64비트 나눗셈 없이 동일한 대응을 유지한다.
+        var samples = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, short>(data.Pcm16.AsSpan());
+        var totalSamples = samples.Length;
 
-        void FlushBucket()
+        for (var bucketIndex = 0; bucketIndex < peakCount; bucketIndex++)
         {
-            if (frameInBucket == 0)
-                return;
+            var startFrame = (bucketIndex * totalFrames + peakCount - 1) / peakCount;
+            var endFrame = bucketIndex == peakCount - 1
+                ? totalFrames
+                : ((bucketIndex + 1) * totalFrames + peakCount - 1) / peakCount;
 
-            var rms = ToRms(sumSquares, frameInBucket);
+            if (endFrame > totalFrames)
+                endFrame = totalFrames;
+
+            var frameCount = (int)(endFrame - startFrame);
+            if (frameCount <= 0)
+                continue;
+
+            double sumSquares = 0;
+            var maxInBucket = 0f;
+
+            for (var frameIndex = startFrame; frameIndex < endFrame; frameIndex++)
+            {
+                var sampleStart = (int)(frameIndex * channels);
+                var value = 0f;
+
+                for (var c = 0; c < channels && sampleStart + c < totalSamples; c++)
+                {
+                    var sample = samples[sampleStart + c];
+                    // short.MinValue 의 절댓값은 short 범위를 넘으므로 float 로 올려 나눈다.
+                    value = Math.Max(value, Math.Abs(sample / 32768f));
+                }
+
+                sumSquares += (double)value * value;
+                maxInBucket = Math.Max(maxInBucket, value);
+            }
+
+            var rms = ToRms(sumSquares, frameCount);
             energies[bucketIndex] = rms;
             peaks[bucketIndex] = ToDisplayAmplitude(rms, maxInBucket);
-            sumSquares = 0;
-            frameInBucket = 0;
-            maxInBucket = 0f;
         }
-
-        var pcm = data.Pcm16;
-        var bytesPerFrame = channels * sizeof(short);
-
-        for (; frameIndex < totalFrames; frameIndex++)
-        {
-            var bucket = (int)Math.Min(peakCount - 1, frameIndex * peakCount / totalFrames);
-            if (bucket != bucketIndex)
-            {
-                FlushBucket();
-                bucketIndex = bucket;
-            }
-
-            var frameStart = frameIndex * bytesPerFrame;
-            var value = 0f;
-
-            for (var c = 0; c < channels; c++)
-            {
-                var offset = (int)frameStart + (c * sizeof(short));
-                var sample = (short)(pcm[offset] | (pcm[offset + 1] << 8));
-
-                // short.MinValue 의 절댓값은 short 범위를 넘으므로 float 로 올려 나눈다.
-                value = Math.Max(value, Math.Abs(sample / 32768f));
-            }
-
-            sumSquares += (double)value * value;
-            maxInBucket = Math.Max(maxInBucket, value);
-            frameInBucket++;
-        }
-
-        FlushBucket();
 
         return new OggWaveform(peaks, BuildOnsets(energies), durationSeconds);
     }

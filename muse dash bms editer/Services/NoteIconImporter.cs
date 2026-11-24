@@ -160,7 +160,11 @@ public static class NoteIconImporter
         var written = 0;
         Directory.CreateDirectory(targetFolder);
 
-        var pngs = Directory.EnumerateFiles(sourceFolder, "*.png", SearchOption.AllDirectories).ToList();
+        var pngs = Directory.EnumerateFiles(sourceFolder, "*.png", new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+        }).ToList();
 
         written += ImportNotes(pngs, targetFolder, warnings, progress);
         written += ImportSimple(pngs, targetFolder, HeartNotePattern, n => $"00{n + 1:00}", new[] { "01", "04" }, "하트·음표", warnings);
@@ -460,6 +464,8 @@ public static class NoteIconImporter
     {
         using var image = SKImage.FromBitmap(bitmap);
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        if (data is null)
+            throw new InvalidOperationException($"PNG 인코딩에 실패했습니다: {Path.GetFileName(path)}");
         using var stream = File.Create(path);
         data.SaveTo(stream);
     }

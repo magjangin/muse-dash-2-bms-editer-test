@@ -67,7 +67,7 @@
                               ToolTip.Tip="{Binding NoteTypeFilterHint}" />
                 <ToggleButton Grid.Row="1" Grid.Column="0" Classes="filter" Content="미선택"
                               IsChecked="{Binding IncludeUnselected}" />
-                <ToggleButton Grid.Row="1" Grid.Column="1" Classes="filter" Content="롱"
+                <ToggleButton Grid.Row="1" Grid.Column="1" Classes="filter" Content="홀드·샌드백"
                               IsChecked="{Binding IncludeLong}"
                               IsEnabled="{Binding AreNoteTypeFiltersUsable}"
                               ToolTip.Tip="{Binding NoteTypeFilterHint}" />

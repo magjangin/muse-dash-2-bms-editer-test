@@ -52,6 +52,7 @@ public sealed partial class MainWindowViewModel
 
         // 한 번에 갈아끼운다. 하나씩 넣으면 항목마다 알림이 나가 통계·팔레트가 매번 재집계한다.
         WavList.ReplaceAll(parsed.WavItems);
+        _keySoundPlayer.ClearCache();
         _keySoundPlayer.PreloadAsync(Chart.WavTable.Values);
         SelectedWavItem = WavList.FirstOrDefault();
 
@@ -114,7 +115,7 @@ public sealed partial class MainWindowViewModel
 
         // 원본 폴더의 음원·영상도 같이 연다. 원본 차트는 그 음원에 맞춰 만든 것이라
         // 열자마자 뼈대를 곡에 맞춰 들어 볼 수 있다. (폴더 열기와 같은 규칙: FolderMedia)
-        var media = await OpenCompanionMediaAsync(Path.GetDirectoryName(filePath)!);
+        var media = await OpenCompanionMediaAsync(Path.GetDirectoryName(filePath) ?? string.Empty);
 
         LastErrorMessage = null;
         return result.Report with
@@ -181,10 +182,11 @@ public sealed partial class MainWindowViewModel
         IReadOnlyDictionary<string, string> targetWavs,
         DownmixResult result)
     {
-        var folder = Path.GetDirectoryName(sourcePath)!;
+        var folder = Path.GetDirectoryName(sourcePath) ?? string.Empty;
 
         _history.UpdateBaselineDocument(TakeSnapshot("", includeDocument: true).Document!);
         _isRestoringHistory = true;
+        _suppressWavCollectionSideEffects = true;
         try
         {
             _selectedNotes.Clear();
@@ -195,7 +197,9 @@ public sealed partial class MainWindowViewModel
             foreach (var (key, text) in targetWavs)
                 Chart.WavTable[key] = Path.IsPathRooted(text) ? text : Path.Combine(folder, text);
 
-            var originalWavs = parsedSource.WavItems.GroupBy(w => w.Key).ToDictionary(g => g.Key, g => g.Last());
+            var originalWavs = parsedSource.WavItems
+                .GroupBy(w => w.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Last(), StringComparer.OrdinalIgnoreCase);
             WavList.ReplaceAll(targetWavs.Select(pair => originalWavs.TryGetValue(pair.Key, out var original)
                 ? CloneWav(original)
                 : new BmsWavItem
@@ -204,6 +208,7 @@ public sealed partial class MainWindowViewModel
                     SourceText = pair.Value,
                     FilePath = Path.IsPathRooted(pair.Value) ? pair.Value : Path.Combine(folder, pair.Value),
                 }));
+            _keySoundPlayer.ClearCache();
             _keySoundPlayer.PreloadAsync(Chart.WavTable.Values);
 
             SelectedWavItem = WavList.FirstOrDefault();
@@ -220,9 +225,11 @@ public sealed partial class MainWindowViewModel
         }
         finally
         {
+            _suppressWavCollectionSideEffects = false;
             _isRestoringHistory = false;
         }
 
+        RefreshNoteIcons();
         NotifyNotesChanged(KeyboardImportHistoryLabel);
         NotifySelectionChanged();
     }

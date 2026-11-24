@@ -40,6 +40,9 @@ public sealed partial class MainWindowViewModel
     // 그림이 오기 전까지 노트는 단색으로 그려지다가 준비되는 대로 그림으로 바뀐다.
     private async void RefreshNoteIcons()
     {
+        if (_disposed)
+            return;
+
         var generation = ++_noteIconGeneration;
         var catalog = _noteIconCatalog;
         var table = Chart.WavTable.ToArray();
@@ -52,11 +55,13 @@ public sealed partial class MainWindowViewModel
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"노트 그림 읽기 실패: {ex.Message}");
+            if (generation == _noteIconGeneration && !_disposed)
+                DisposeRetiredNoteIconCatalogs();
             return;
         }
 
-        // 그사이 키음 표가 또 바뀌었다. 뒤에 시작한 쪽이 결과를 넣는다.
-        if (generation != _noteIconGeneration)
+        // 그사이 키음 표가 또 바뀌었거나 창이 닫혔다.
+        if (generation != _noteIconGeneration || _disposed)
             return;
 
         _noteIcons = icons;
@@ -80,7 +85,9 @@ public sealed partial class MainWindowViewModel
             return;
 
         var wasRestoring = _isRestoringHistory;
+        var wasSuppressed = _suppressWavCollectionSideEffects;
         _isRestoringHistory = true;
+        _suppressWavCollectionSideEffects = true;
         try
         {
             foreach (var wav in created)
@@ -90,6 +97,7 @@ public sealed partial class MainWindowViewModel
         }
         finally
         {
+            _suppressWavCollectionSideEffects = wasSuppressed;
             _isRestoringHistory = wasRestoring;
         }
 
@@ -308,10 +316,14 @@ public sealed partial class MainWindowViewModel
     {
         if (notes.Count == 0 || string.IsNullOrWhiteSpace(wavKey)) return 0;
 
+        // 확인 창 대기 사이에 Undo/Redo/열기 등으로 문서가 바뀌었으면 구 노트를 건드리지 않는다.
+        HashSet<BmsNote>? currentNotes = notes.Count > 4 ? new HashSet<BmsNote>(Chart.Notes) : null;
+
         var changed = 0;
         foreach (var note in notes)
         {
-            if (note.WavKey == wavKey) continue;
+            var belongs = currentNotes is not null ? currentNotes.Contains(note) : Chart.Notes.Contains(note);
+            if (!belongs || note.WavKey == wavKey) continue;
 
             note.WavKey = wavKey;
             changed++;
@@ -532,9 +544,9 @@ public sealed partial class MainWindowViewModel
     [RelayCommand]
     private async Task RemoveWavAsync()
     {
-        if (SelectedWavItem is null) return;
+        if (SelectedWavItem is not { } target) return;
 
-        var key = SelectedWavItem.Key;
+        var key = target.Key;
         var usedBy = CountNotesUsingWavKey(key);
 
         if (usedBy > 0)
@@ -553,8 +565,9 @@ public sealed partial class MainWindowViewModel
         }
 
         Chart.WavTable.Remove(key);
-        WavList.Remove(SelectedWavItem);
-        SelectedWavItem = null;
+        WavList.Remove(target);
+        if (ReferenceEquals(SelectedWavItem, target))
+            SelectedWavItem = null;
     }
 
     [RelayCommand]
@@ -564,6 +577,7 @@ public sealed partial class MainWindowViewModel
             StopPlaybackAtCurrentPosition();
 
         if (SelectedWavItem is null) return;
+        if (args.Measure < 0 || args.Measure > BmsParser.MaxMeasureNumber) return;
 
         var wavKey = SelectedWavItem.Key;
 
