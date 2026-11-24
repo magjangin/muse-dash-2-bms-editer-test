@@ -62,9 +62,10 @@ public sealed partial class MainWindowViewModel
         try
         {
             await Task.Run(() => store.Write(sessionId, content, meta));
-            _autoSavedRevision = revision;
+            if (revision == _documentRevision)
+                _autoSavedRevision = revision;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             // 다음 주기에 다시 시도한다. 자동 저장 실패로 작업을 끊지 않는다.
             System.Diagnostics.Debug.WriteLine($"자동 저장 실패: {ex.Message}");
@@ -134,7 +135,14 @@ public sealed partial class MainWindowViewModel
         _fileStamp = FileStampOf(entry.Meta.OriginalPath);
         _externalChangeNotified = _fileStamp;
 
-        AutoSave?.Adopt(entry);
+        try
+        {
+            AutoSave?.Adopt(entry);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"자동 저장 세션 인계 실패: {ex.Message}");
+        }
         MarkDirty();
         _autoSavedRevision = _documentRevision;
         return true;

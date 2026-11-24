@@ -119,6 +119,9 @@ public sealed partial class MainWindowViewModel
         if (finished)
             currentSec = Math.Max(currentSec, OggDurationSeconds);
 
+        // 드라이버 위치 조회가 미세하게 뒤로 튀어도 같은 노트가 중복 발음되지 않게 단조 증가를 보장한다.
+        currentSec = Math.Max(currentSec, _lastPlaybackPositionSeconds);
+
         PlaybackPositionSeconds = currentSec;
 
         PlayNotesInTimeRange(_lastPlaybackPositionSeconds + AudioOffsetSeconds, currentSec + AudioOffsetSeconds);

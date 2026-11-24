@@ -80,14 +80,15 @@ public sealed class OggWaveformControl : TimelineControlBase
         if (width <= 0 || height <= 0 || timelineLength <= 0)
             return;
 
-        var waveformThickness = IsHorizontalView ? height : width;
+        var isHorizontal = IsHorizontalView;
+        var waveformThickness = isHorizontal ? height : width;
         var center = waveformThickness / 2.0;
         var range = BeginTimelineRender();
 
         // 배경은 잘라 그리지 않는다. 그린 자리만 클릭을 받기 때문이다(NoteGridControl 참고).
         context.FillRectangle(WaveformBackgroundBrush, new Rect(0, 0, width, height));
 
-        if (IsHorizontalView)
+        if (isHorizontal)
         {
             context.DrawLine(CenterLinePen, new Point(0, center), new Point(width, center));
         }
@@ -101,7 +102,7 @@ public sealed class OggWaveformControl : TimelineControlBase
 
         if (peaks is { Count: > 1 })
         {
-            DrawBlockWaveform(context, peaks, timelineLength, center, maxAmplitude, WaveFillBrush, WavePen, IsHorizontalView, AudioOffsetSeconds, DurationSeconds, range);
+            DrawBlockWaveform(context, peaks, timelineLength, center, maxAmplitude, WaveFillBrush, WavePen, isHorizontal, AudioOffsetSeconds, DurationSeconds, range);
         }
         else
         {
@@ -110,7 +111,7 @@ public sealed class OggWaveformControl : TimelineControlBase
             var lastPos = range.IsAll ? timelineLength : Math.Min(timelineLength, range.End);
             for (var tPos = firstPos; tPos <= lastPos; tPos += 2.0)
             {
-                if (IsHorizontalView)
+                if (isHorizontal)
                 {
                     var fMeasurePosition = rowHeight > 0 ? tPos / rowHeight : 0;
                     var ft = fMeasurePosition * 6.0;
@@ -129,7 +130,7 @@ public sealed class OggWaveformControl : TimelineControlBase
             }
         }
 
-        DrawBeatGrid(context, waveformThickness, timelineLength, IsHorizontalView, range);
+        DrawBeatGrid(context, waveformThickness, timelineLength, isHorizontal, range);
     }
 
     protected override void RenderOverlay(DrawingContext context)
@@ -269,6 +270,9 @@ public sealed class OggWaveformControl : TimelineControlBase
     {
         if (_measureLabelCache.TryGetValue(measure, out var cached) && cached.Seconds == seconds)
             return cached.Formatted;
+
+        if (_measureLabelCache.Count >= 2048)
+            _measureLabelCache.Clear();
 
         var formatted = new FormattedText(
             $"#{measure:D3} ({seconds:F4}s)",

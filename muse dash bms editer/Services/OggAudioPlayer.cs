@@ -94,32 +94,40 @@ public sealed partial class OggAudioPlayer : IDisposable
 
         ThrowIfFailed(WaveOutOpen(out _waveOut, -1, ref format, IntPtr.Zero, IntPtr.Zero, 0));
 
-        _dataHandle = GCHandle.Alloc(_pcmBytes, GCHandleType.Pinned);
-        _header = new WaveHeader
+        try
         {
-            Data = _dataHandle.AddrOfPinnedObject() + startByte,
-            BufferLength = byteCount,
-        };
-        _headerHandle = GCHandle.Alloc(_header, GCHandleType.Pinned);
+            _dataHandle = GCHandle.Alloc(_pcmBytes, GCHandleType.Pinned);
+            _header = new WaveHeader
+            {
+                Data = _dataHandle.AddrOfPinnedObject() + startByte,
+                BufferLength = byteCount,
+            };
+            _headerHandle = GCHandle.Alloc(_header, GCHandleType.Pinned);
 
-        ThrowIfFailed(WaveOutPrepareHeader(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
-        _prepared = true;
-        ThrowIfFailed(WaveOutWrite(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
+            ThrowIfFailed(WaveOutPrepareHeader(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
+            _prepared = true;
+            ThrowIfFailed(WaveOutWrite(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>()));
+        }
+        catch
+        {
+            Stop();
+            throw;
+        }
     }
 
     public void Stop()
     {
-        if (_waveOut == IntPtr.Zero)
-            return;
+        if (_waveOut != IntPtr.Zero)
+        {
+            WaveOutReset(_waveOut);
 
-        WaveOutReset(_waveOut);
+            if (_prepared && _headerHandle.IsAllocated)
+                WaveOutUnprepareHeader(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>());
 
-        if (_prepared && _headerHandle.IsAllocated)
-            WaveOutUnprepareHeader(_waveOut, _headerHandle.AddrOfPinnedObject(), Marshal.SizeOf<WaveHeader>());
-
-        WaveOutClose(_waveOut);
-        _waveOut = IntPtr.Zero;
-        _prepared = false;
+            WaveOutClose(_waveOut);
+            _waveOut = IntPtr.Zero;
+            _prepared = false;
+        }
 
         if (_headerHandle.IsAllocated)
             _headerHandle.Free();

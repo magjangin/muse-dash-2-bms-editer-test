@@ -26,7 +26,7 @@ public static class SafeFileWriter
         Directory.CreateDirectory(directory);
 
         // 임시 파일은 반드시 같은 폴더에 둔다. 다른 볼륨이면 바꿔치기가 원자적이지 않다.
-        var tempPath = Path.Combine(directory, $"{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+        var tempPath = Path.Combine(directory, $"{Path.GetFileName(fullPath)}.{Guid.NewGuid().ToString("N")[..8]}.tmp");
 
         try
         {

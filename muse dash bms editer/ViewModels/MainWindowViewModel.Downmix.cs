@@ -51,7 +51,12 @@ public sealed partial class MainWindowViewModel
             Chart.WavTable[key] = value;
 
         // 한 번에 갈아끼운다. 하나씩 넣으면 항목마다 알림이 나가 통계·팔레트가 매번 재집계한다.
+        // ReplaceAll 의 CollectionChanged 가 되돌리기 기록·dirty·홀드 재계산·노트 그림 갱신을 이미 한다.
+        // 여기서 NotifyNotesChanged 를 또 부르면 되돌리기 칸이 두 번 쌓여 Ctrl+Z 한 번에 안 돌아간다.
         WavList.ReplaceAll(parsed.WavItems);
+
+        // 이전 키음 표의 PCM 과 진행 중인 프리로드를 버리고 새 표로 다시 읽는다.
+        _keySoundPlayer.ClearCache();
         _keySoundPlayer.PreloadAsync(Chart.WavTable.Values);
         SelectedWavItem = WavList.FirstOrDefault();
 

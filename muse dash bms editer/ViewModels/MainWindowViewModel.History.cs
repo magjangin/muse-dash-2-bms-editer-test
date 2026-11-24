@@ -107,6 +107,9 @@ public sealed partial class MainWindowViewModel
     // 예전 참조는 어느 목록에도 없게 되기 때문이다.
     private List<int> CurrentSelectionIndices()
     {
+        if (_selectedNotes.Count == 0)
+            return new List<int>();
+
         var indexOf = GetNoteIndexes();
         var selected = new List<int>(_selectedNotes.Count);
         foreach (var note in _selectedNotes)

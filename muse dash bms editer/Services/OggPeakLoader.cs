@@ -88,25 +88,24 @@ public static class OggPeakLoader
             maxInBucket = 0f;
         }
 
-        var pcm = data.Pcm16;
-        var bytesPerFrame = channels * sizeof(short);
+        var samples = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, short>(data.Pcm16.AsSpan());
+        var nextBucketFrame = NextBucketStartFrame(0, peakCount, totalFrames);
 
         for (; frameIndex < totalFrames; frameIndex++)
         {
-            var bucket = (int)Math.Min(peakCount - 1, frameIndex * peakCount / totalFrames);
-            if (bucket != bucketIndex)
+            while (frameIndex >= nextBucketFrame && bucketIndex + 1 < peakCount)
             {
                 FlushBucket();
-                bucketIndex = bucket;
+                bucketIndex++;
+                nextBucketFrame = NextBucketStartFrame(bucketIndex, peakCount, totalFrames);
             }
 
-            var frameStart = frameIndex * bytesPerFrame;
+            var sampleBase = (int)(frameIndex * channels);
             var value = 0f;
 
             for (var c = 0; c < channels; c++)
             {
-                var offset = (int)frameStart + (c * sizeof(short));
-                var sample = (short)(pcm[offset] | (pcm[offset + 1] << 8));
+                var sample = samples[sampleBase + c];
 
                 // short.MinValue 의 절댓값은 short 범위를 넘으므로 float 로 올려 나눈다.
                 value = Math.Max(value, Math.Abs(sample / 32768f));
@@ -120,6 +119,16 @@ public static class OggPeakLoader
         FlushBucket();
 
         return new OggWaveform(peaks, BuildOnsets(energies), durationSeconds);
+    }
+
+    // frameIndex * peakCount / totalFrames >= bucketIndex + 1 이 되는 첫 프레임 (나눗셈을 버킷당 1회로 축소)
+    private static long NextBucketStartFrame(int bucketIndex, int peakCount, long totalFrames)
+    {
+        var next = bucketIndex + 1;
+        if (next >= peakCount)
+            return totalFrames;
+
+        return ((long)next * totalFrames + peakCount - 1) / peakCount;
     }
 
     private static float ToRms(double sumSquares, int frameCount) =>

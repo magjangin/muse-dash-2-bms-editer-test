@@ -28,6 +28,9 @@ public sealed class VideoPreviewControl : Control, IDisposable
     private bool _isPlaying;
     private double _lastRequestedSeconds;
     private string _statusText = "VIDEO";
+    private string? _cachedStatusText;
+    private FormattedText? _cachedStatusFormatted;
+    private int _videoLoadGeneration;
 
     private static readonly IBrush BackgroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(10, 10, 12));
     private static readonly IBrush StatusTextBrush = new ImmutableSolidColorBrush(Color.FromArgb(150, 210, 210, 210));
@@ -53,15 +56,21 @@ public sealed class VideoPreviewControl : Control, IDisposable
         context.FillRectangle(BackgroundBrush, Bounds);
         if (!_hasVideo || _webView is null)
         {
-            var text = new FormattedText(
-                _statusText,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                StatusTypeface,
-                13,
-                StatusTextBrush);
+            if (_cachedStatusFormatted is null || _cachedStatusText != _statusText)
+            {
+                _cachedStatusText = _statusText;
+                _cachedStatusFormatted = new FormattedText(
+                    _statusText,
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    StatusTypeface,
+                    13,
+                    StatusTextBrush);
+            }
 
-            context.DrawText(text, new Point((Bounds.Width - text.Width) / 2, (Bounds.Height - text.Height) / 2));
+            context.DrawText(
+                _cachedStatusFormatted,
+                new Point((Bounds.Width - _cachedStatusFormatted.Width) / 2, (Bounds.Height - _cachedStatusFormatted.Height) / 2));
         }
     }
 
@@ -70,19 +79,28 @@ public sealed class VideoPreviewControl : Control, IDisposable
         base.OnAttachedToVisualTree(e);
         _disposed = false;
         LayoutUpdated += OnLayoutUpdated;
-        _ = ReattachAsync();
+        if (_hasVideo && _pendingVideoPath is not null)
+            _ = ReattachAsync();
     }
 
     private async Task ReattachAsync()
     {
-        await EnsureWebViewAsync();
-        if (_disposed || !_hasVideo || _pendingVideoPath is not { } path || _webView is null)
-            return;
+        var gen = _videoLoadGeneration;
+        try
+        {
+            await EnsureWebViewAsync();
+            if (_disposed || gen != _videoLoadGeneration || !_hasVideo || _pendingVideoPath is not { } path || _webView is null)
+                return;
 
-        MapVideoFolder(path);
-        _webView.NavigateToString(BuildVideoHtml(path, _lastRequestedSeconds));
-        UpdateBounds();
-        PauseAt(_lastRequestedSeconds);
+            MapVideoFolder(path);
+            _webView.NavigateToString(BuildVideoHtml(path, _lastRequestedSeconds));
+            UpdateBounds();
+            PauseAt(_lastRequestedSeconds);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"비디오 재연결 실패: {ex.Message}");
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -95,35 +113,61 @@ public sealed class VideoPreviewControl : Control, IDisposable
 
     public async void LoadVideo(string filePath)
     {
+        var gen = ++_videoLoadGeneration;
         _pendingVideoPath = filePath;
         _hasVideo = true;
         _statusText = "비디오 로딩 중";
         InvalidateVisual();
 
-        await EnsureWebViewAsync();
-        if (_webView is null)
+        try
         {
-            _statusText = "비디오 엔진 초기화 실패";
-            InvalidateVisual();
-            return;
-        }
+            await EnsureWebViewAsync();
+            if (_disposed || gen != _videoLoadGeneration || !_hasVideo)
+                return;
 
-        MapVideoFolder(filePath);
-        _webView.NavigateToString(BuildVideoHtml(filePath, _lastRequestedSeconds));
-        UpdateBounds();
-        PauseAt(_lastRequestedSeconds);
+            if (_webView is null)
+            {
+                _statusText = "비디오 엔진 초기화 실패";
+                InvalidateVisual();
+                return;
+            }
+
+            MapVideoFolder(filePath);
+            _webView.NavigateToString(BuildVideoHtml(filePath, _lastRequestedSeconds));
+            UpdateBounds();
+            PauseAt(_lastRequestedSeconds);
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed && gen == _videoLoadGeneration)
+            {
+                _statusText = $"비디오 로드 오류: {ex.Message}";
+                InvalidateVisual();
+            }
+        }
     }
 
-    public async void ClearVideo()
+    public void ClearVideo()
     {
+        _videoLoadGeneration++;
         _pendingVideoPath = null;
         _hasVideo = false;
         _isPlaying = false;
         _statusText = "VIDEO";
         InvalidateVisual();
 
-        await EnsureWebViewAsync();
-        _webView?.NavigateToString(BuildEmptyHtml());
+        // 비디오를 연 적 없으면 WebView2 프로세스를 띄우지 않는다.
+        if (_webView is null)
+            return;
+
+        try
+        {
+            _webView.NavigateToString(BuildEmptyHtml());
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"비디오 정리 실패: {ex.Message}");
+        }
     }
 
     private double _playbackRate = 1.0;
@@ -187,9 +231,12 @@ public sealed class VideoPreviewControl : Control, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _videoLoadGeneration++;
         _webView = null;
         _controller?.Close();
         _controller = null;
+        _lastBounds = null;
+        _lastIsVisible = false;
     }
 
     private async Task EnsureWebViewAsync()
@@ -245,12 +292,6 @@ public sealed class VideoPreviewControl : Control, IDisposable
             _webView.Settings.AreDefaultContextMenusEnabled = false;
             _webView.Settings.AreDevToolsEnabled = false;
             _webView.NavigateToString(BuildEmptyHtml());
-
-            if (_pendingVideoPath is not null)
-            {
-                MapVideoFolder(_pendingVideoPath);
-                _webView.NavigateToString(BuildVideoHtml(_pendingVideoPath, _lastRequestedSeconds));
-            }
 
             UpdateBounds();
             InvalidateVisual();
@@ -312,7 +353,19 @@ public sealed class VideoPreviewControl : Control, IDisposable
         if (!_hasVideo || _webView is null)
             return;
 
-        _ = _webView.ExecuteScriptAsync(script);
+        _ = ExecuteVideoScriptAsync(_webView, script);
+    }
+
+    private static async Task ExecuteVideoScriptAsync(CoreWebView2 webView, string script)
+    {
+        try
+        {
+            await webView.ExecuteScriptAsync(script);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"비디오 스크립트 실행 실패: {ex.Message}");
+        }
     }
 
     private void MapVideoFolder(string filePath)

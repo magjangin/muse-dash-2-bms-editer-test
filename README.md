@@ -11,13 +11,13 @@
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
 ![Avalonia 12](https://img.shields.io/badge/Avalonia_UI-12-8B44AC)
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D4)
-![version](https://img.shields.io/badge/version-0.2.0-blue)
+![version](https://img.shields.io/badge/version-0.2.1-blue)
 ![target](https://img.shields.io/badge/target-Muse_Dash_2-ff4081)
 ![status](https://img.shields.io/badge/status-fork_preparing-orange)
 
 > [!IMPORTANT]
 > **뮤즈 대시 1 에디터에서 분기한 뮤즈 대시 2 전용 포크입니다.**
-> - 2026-11-15 현재 **뮤즈 대시 2 사양 확인 전**이므로, 채보 규칙(`Profiles/*.json`)과 `docs/` 가이드는 뮤즈 대시 1 기준을 바탕으로 두고 있습니다. 게임 확보 후 실제 차트 포맷(채널·노트 표기·홀드 짝 규칙)을 확인해 순차적으로 반영할 예정입니다.
+> - 2026-11-15 현재 **뮤즈 대시 2 사양 확인 전**이므로, 채보 규칙(`Profiles/*.json`)과 `docs/` 가이드는 뮤즈 대시 1 기준을 바탕으로 두고 있습니다. 게임 확보 후 실제 차트 포맷(채널·노트 표기·홀드 짝 규칙)을 확인해 순차적으로 반영할 예정입니다. 또한 exe를 다시 빌드하지 않고도 `%LOCALAPPDATA%\muse dash 2 bms editer\profiles\` 에 `muse_dash_2.json` 을 두어 규칙을 덮어쓸 수 있습니다.
 > - 기존 **뮤즈 대시 1 에디터와 같은 PC에 함께 설치해도 충돌하지 않도록** 사용자 데이터 폴더(`%LOCALAPPDATA%\muse dash 2 bms editer\`), `.bms` 파일 연결(`MuseDash2Bms.Chart`), 실행 파일 이름(`muse dash 2 bms editer 1/2.exe`), 앱 아이콘을 모두 분리했습니다.
 
 > [!NOTE]
@@ -162,8 +162,8 @@
 
 | 파일 | 아이콘 | 구성 |
 |:---|:---:|:---|
-| `publish/personal/muse dash bms editer 1.exe` | 골드 · 1 | 노트 그림까지 **exe 하나에 내장** (개인용, 저장소에 올리지 않음) |
-| `publish/release/muse dash bms editer 2.exe` | 블루 · 2 | 그림 미내장 exe + 옆의 `note_icons/` 폴더 |
+| `publish/personal/muse dash 2 bms editer 1.exe` | 골드 · 1 | 노트 그림까지 **exe 하나에 내장** (개인용, 저장소에 올리지 않음) |
+| `publish/release/muse dash 2 bms editer 2.exe` | 블루 · 2 | 그림 미내장 exe + 옆의 `note_icons/` 폴더 |
 
 창 제목 끝의 `(1. 개인용)` / `(2. 릴리즈용)` 으로도 구별됩니다.
 `.NET` 단일 파일 특성상 **exe 이름을 직접 바꾸면 실행되지 않습니다** — 이름은 배포 프로필에서 정해집니다.
@@ -174,7 +174,7 @@
 # 실행
 dotnet run --project "muse dash bms editer/muse dash bms editer.csproj"
 
-# 테스트 (200개 넘는 단위·통합 테스트, 화면 없이 창까지 띄워 확인)
+# 테스트 (478개 단위·통합 테스트, 화면 없이 창까지 띄워 확인)
 dotnet test "muse dash bms editer.slnx"
 
 # [추천] 한 번에 빌드 (1번 개인용 + 2번 릴리즈용 둘 다 빌드)

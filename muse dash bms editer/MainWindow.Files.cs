@@ -314,6 +314,13 @@ public partial class MainWindow
         //
         // 예전에는 제목을 그대로 넘겨서, `:` `?` `/` 같은 글자가 든 제목이면
         // 저장 대화상자가 걸렸다. 곡 제목에는 흔한 글자들이다.
+        private static readonly HashSet<string> WindowsReservedFileNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        };
+
         private static string ToSafeFileName(string? title)
         {
             if (string.IsNullOrWhiteSpace(title))
@@ -321,8 +328,12 @@ public partial class MainWindow
 
             var safe = new string(title.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray()).Trim();
 
-            // 전부 걸러졌거나 점만 남은 경우.
-            return safe.Trim('.').Length == 0 ? "chart" : safe;
+            // 전부 걸러졌거나 점만 남은 경우, 또는 Windows 예약 장치명.
+            var trimmedDots = safe.Trim('.');
+            if (trimmedDots.Length == 0 || WindowsReservedFileNames.Contains(trimmedDots))
+                return "chart";
+
+            return safe;
         }
 
         private async Task LoadFolderMediaAsync(MainWindowViewModel vm, string folderPath)

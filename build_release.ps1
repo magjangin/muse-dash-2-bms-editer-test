@@ -4,8 +4,10 @@ Write-Host "========================================================" -Foregroun
 Write-Host " [2번: 릴리즈용] Muse Dash 2 BMS Editor 패키징 (폴더 분리형)" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
-$targetDir = "publish/release"
+$root = $PSScriptRoot
+$targetDir = Join-Path $root "publish/release"
 $exePath = Join-Path $targetDir "muse dash 2 bms editer 2.exe"
+$csprojPath = Join-Path $root "muse dash bms editer/muse dash bms editer.csproj"
 
 # 1. 기존 폴더 내용 정리
 if (Test-Path $targetDir) {
@@ -15,7 +17,7 @@ if (Test-Path $targetDir) {
 
 # 2. 2번 릴리즈 빌드 실행 (EmbedNoteIcons=false, AssemblyName="muse dash 2 bms editer 2")
 Write-Host "[빌드] 2번 릴리즈 exe (에셋 미내장 + 2번 블루 아이콘) 패키징 중..." -ForegroundColor Yellow
-dotnet publish "muse dash bms editer/muse dash bms editer.csproj" -p:PublishProfile=release
+dotnet publish $csprojPath -p:PublishProfile=release
 if ($LASTEXITCODE -ne 0) {
     throw "릴리즈용 exe 빌드 실패!"
 }
@@ -25,7 +27,7 @@ if (-not (Test-Path $exePath)) {
 }
 
 # 3. 외부 note_icons 폴더 배치 ("그 폴더가 있는 exe" 구성)
-$iconsSrc = "muse dash bms editer/note_icons"
+$iconsSrc = Join-Path $root "muse dash bms editer/note_icons"
 $iconsDst = Join-Path $targetDir "note_icons"
 if (Test-Path $iconsSrc) {
     Write-Host "[에셋] note_icons 폴더 배치 중..." -ForegroundColor Gray

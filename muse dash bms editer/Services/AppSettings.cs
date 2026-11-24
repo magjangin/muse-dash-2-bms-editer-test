@@ -34,10 +34,22 @@ public sealed class AppSettings
 
     public List<string> RecentFiles { get; set; } = new();
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
+
     public static string DefaultPath => Path.Combine(AutoSaveStore.DefaultDataRoot, "settings.json");
 
     public void AddRecentFile(string path)
     {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        RecentFiles ??= new List<string>();
         RecentFiles.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
         RecentFiles.Insert(0, path);
 
@@ -51,9 +63,14 @@ public sealed class AppSettings
         {
             var file = path ?? DefaultPath;
             if (File.Exists(file))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(file)) ?? new AppSettings();
+            {
+                var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(file), JsonOptions) ?? new AppSettings();
+                loaded.RecentFiles ??= new List<string>();
+                loaded.RecentFiles.RemoveAll(string.IsNullOrWhiteSpace);
+                return loaded;
+            }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException)
         {
             System.Diagnostics.Debug.WriteLine($"설정 읽기 실패: {ex.Message}");
         }
@@ -63,18 +80,38 @@ public sealed class AppSettings
 
     public void Save(string? path = null)
     {
+        string? temp = null;
         try
         {
-            var file = path ?? DefaultPath;
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            var file = Path.GetFullPath(path ?? DefaultPath);
+            var directory = Path.GetDirectoryName(file);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
 
-            var temp = file + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            temp = $"{file}.{Guid.NewGuid().ToString("N")[..8]}.tmp";
+            var json = JsonSerializer.Serialize(this, JsonOptions);
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, System.Text.Encoding.UTF8))
+            {
+                writer.Write(json);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
+
             File.Move(temp, file, overwrite: true);
+            temp = null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             System.Diagnostics.Debug.WriteLine($"설정 저장 실패: {ex.Message}");
+        }
+        finally
+        {
+            if (temp is not null)
+            {
+                try { File.Delete(temp); }
+                catch { /* 임시 파일 정리 실패 무시 */ }
+            }
         }
     }
 }

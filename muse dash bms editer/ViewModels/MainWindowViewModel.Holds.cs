@@ -18,8 +18,11 @@ namespace bms_editer.ViewModels;
 public sealed partial class MainWindowViewModel
 {
     // 프로파일을 못 읽으면 홀드가 하나도 안 잡힌다. 그 상태를 화면에 말해 주려고 이유를 들고 있는다.
+    // 향후 muse_dash_2.json 이 추가(또는 사용자 profiles 폴더에 배치)되면 자동으로 우선 적용된다.
     private static readonly GameProfile HoldProfile =
-        GameProfileCatalog.Default.Find("muse_dash") ?? GameProfile.None;
+        GameProfileCatalog.Default.Find("muse_dash_2")
+        ?? GameProfileCatalog.Default.Find("muse_dash")
+        ?? GameProfile.None;
 
     public HoldPairingResult HoldResult { get; private set; } = HoldPairingResult.Empty;
 
@@ -90,6 +93,8 @@ public sealed partial class MainWindowViewModel
         text += errors > 0 ? $" · 🔴 문제 {errors}" : " · 문제 없음";
         if (warnings > 0)
             text += $" · 🟡 주의 {warnings}";
+        if (GameProfileCatalog.Default.LoadErrors.Count > 0)
+            text += $" · ⚠️ 외부 프로파일 오류 {GameProfileCatalog.Default.LoadErrors.Count}";
 
         return text;
     }

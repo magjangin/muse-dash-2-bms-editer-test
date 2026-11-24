@@ -43,7 +43,9 @@ internal class Program
 
         try
         {
-            var startupPath = args.FirstOrDefault(IsChartFile);
+            var startupPath = args.FirstOrDefault(IsChartFile) is { } matchedPath
+                ? Path.GetFullPath(matchedPath)
+                : null;
 
             using var mutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out var createdNew);
             if (!createdNew && TryForwardToRunningInstance(startupPath))
@@ -98,8 +100,12 @@ internal class Program
                         PipeOptions.Asynchronous);
 
                     await server.WaitForConnectionAsync(cancellationToken);
+                    using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    readCts.CancelAfter(TimeSpan.FromSeconds(2));
                     using var reader = new StreamReader(server, Encoding.UTF8, leaveOpen: true);
-                    var path = await reader.ReadToEndAsync(cancellationToken);
+                    var buffer = new char[4096];
+                    var charsRead = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), readCts.Token);
+                    var path = charsRead > 0 ? new string(buffer, 0, charsRead).Trim() : "";
                     App.RaiseExternalOpenRequested(string.IsNullOrWhiteSpace(path) ? null : path);
                 }
                 catch (OperationCanceledException)

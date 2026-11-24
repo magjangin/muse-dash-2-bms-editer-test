@@ -250,7 +250,7 @@ public sealed partial class MainWindowViewModel
             return new NoteCopyResult(0, 0, 0);
 
         // 원본뿐 아니라 이번에 새로 만든 것까지 함께 봐야 복제본끼리 겹치는 것도 막힌다.
-        var occupied = new HashSet<(string Lane, int Measure, long Slot)>();
+        var occupied = new HashSet<(string Lane, int Measure, long Slot)>(Chart.Notes.Count + notes.Count);
         foreach (var existing in Chart.Notes)
             occupied.Add(ToSlotKey(existing.LaneId, existing.Measure, existing.Position));
 
@@ -372,7 +372,7 @@ public sealed partial class MainWindowViewModel
         }
 
         // 2단계: 선택 밖의 노트와 부딪히는지, 옮긴 것끼리 겹치는지 확인한다.
-        var occupied = new HashSet<(string, int, long)>();
+        var occupied = new HashSet<(string, int, long)>(Chart.Notes.Count);
         foreach (var note in Chart.Notes)
         {
             if (!_selectedNotes.Contains(note))

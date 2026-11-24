@@ -257,7 +257,15 @@ public sealed class NoteGridControl : TimelineControlBase
     {
         AffectsRender<NoteGridControl>(HideUnusedLanesProperty, LanesProperty, LaneWidthProperty, NotesProperty, IsCircleNoteShapeProperty, NoteIconsProperty,
             ShowNoteSpeedProperty, SelectedNotesProperty, HoldLinksProperty, HoldProblemNotesProperty);
-        AffectsMeasure<NoteGridControl>(HideUnusedLanesProperty, LanesProperty, NotesProperty, LaneWidthProperty);
+        AffectsMeasure<NoteGridControl>(HideUnusedLanesProperty, LanesProperty, LaneWidthProperty);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        // Notes 변경이 컨트롤 크기에 영향을 주는 경우는 HideUnusedLanes 가 켜진 때뿐이다.
+        if (change.Property == NotesProperty && HideUnusedLanes)
+            InvalidateMeasure();
     }
 
     private Point? _dragStartPoint;
@@ -560,10 +568,14 @@ public sealed class NoteGridControl : TimelineControlBase
             }
         }
 
+        // 렌더 한 번에 축과 레인 맵을 한 번만 캡처해 세 단계에서 나눠 쓴다.
+        var axis = CaptureAxis(timelineLength);
+        var laneMap = GetLaneIndexMap(lanes);
+
         // 홀드 몸통은 노트보다 먼저 그린다. 머리·꼬리 노트가 몸통 위에 올라와야 한다.
-        DrawHoldBodies(context, lanes, laneThickness, timelineLength, range);
-        DrawNotes(context, lanes, laneThickness, timelineLength, range);
-        DrawHoldProblems(context, lanes, laneThickness, timelineLength, range);
+        DrawHoldBodies(context, laneMap, laneThickness, axis, range);
+        DrawNotes(context, laneMap, laneThickness, axis, range);
+        DrawHoldProblems(context, laneMap, laneThickness, axis, range);
     }
 
     // 자주 바뀌는 그림(드래그 사각형·번쩍임·재생 커서). 격자 위의 겹 컨트롤이 부른다.
@@ -590,7 +602,7 @@ public sealed class NoteGridControl : TimelineControlBase
     }
 
     private void DrawNotes(
-        DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, double timelineLength, TimelineRange range)
+        DrawingContext context, Dictionary<string, int> laneMap, double laneThickness, TimelineAxis axis, TimelineRange range)
     {
         var notes = Notes;
         if (notes is null || notes.Count == 0)
@@ -605,8 +617,6 @@ public sealed class NoteGridControl : TimelineControlBase
 
         var selectedSet = _cachedSelectedSet;
         var sortedNotes = GetSortedNotes(notes);
-        var laneMap = GetLaneIndexMap(lanes);
-        var axis = CaptureAxis(timelineLength);
         var style = CaptureNoteStyle(laneThickness);
 
         // 그림·이름표는 레인 폭 안에 들어가므로 이만큼만 여유를 두면 잘리지 않는다.
@@ -766,14 +776,11 @@ public sealed class NoteGridControl : TimelineControlBase
     //
     // 양 끝 좌표를 각각 TimelineAxis.PositionOf 로 구한다. 노트와 같은 시간축을 써야 몸통 끝이 끝 노트와 만난다.
     // 마디 단위로 선형 보간해 늘리면 BPM 변화나 변박 구간을 지나는 홀드의 끝이 끝 노트와 어긋난다.
-    private void DrawHoldBodies(DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, double timelineLength, TimelineRange range)
+    private void DrawHoldBodies(DrawingContext context, Dictionary<string, int> laneMap, double laneThickness, TimelineAxis axis, TimelineRange range)
     {
         var links = HoldLinks;
         if (links is null || links.Count == 0)
             return;
-
-        var axis = CaptureAxis(timelineLength);
-        var laneMap = GetLaneIndexMap(lanes);
 
         for (var i = 0; i < links.Count; i++)
         {
@@ -806,14 +813,11 @@ public sealed class NoteGridControl : TimelineControlBase
         }
     }
 
-    private void DrawHoldProblems(DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, double timelineLength, TimelineRange range)
+    private void DrawHoldProblems(DrawingContext context, Dictionary<string, int> laneMap, double laneThickness, TimelineAxis axis, TimelineRange range)
     {
         var problems = HoldProblemNotes;
         if (problems is null || problems.Count == 0)
             return;
-
-        var axis = CaptureAxis(timelineLength);
-        var laneMap = GetLaneIndexMap(lanes);
 
         for (var i = 0; i < problems.Count; i++)
         {

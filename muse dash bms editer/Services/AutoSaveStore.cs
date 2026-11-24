@@ -134,7 +134,17 @@ public sealed class AutoSaveStore : IDisposable
                 return Array.Empty<AutoSaveEntry>();
 
             var entries = new List<AutoSaveEntry>();
-            foreach (var folder in Directory.EnumerateDirectories(AutoSaveRoot))
+            IEnumerable<string> folders;
+            try
+            {
+                folders = Directory.EnumerateDirectories(AutoSaveRoot).ToArray();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return Array.Empty<AutoSaveEntry>();
+            }
+
+            foreach (var folder in folders)
             {
                 var id = Path.GetFileName(folder);
                 if (id == _sessionId || IsLocked(folder))
@@ -181,7 +191,7 @@ public sealed class AutoSaveStore : IDisposable
                     .ToArray(),
                 MaxBackups);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             System.Diagnostics.Debug.WriteLine($"백업 실패: {ex.Message}");
         }
@@ -263,7 +273,16 @@ public sealed class AutoSaveStore : IDisposable
     private static void PruneOldest(string[] oldestFirst, int keep)
     {
         for (var i = 0; i < oldestFirst.Length - keep; i++)
-            File.Delete(oldestFirst[i]);
+        {
+            try
+            {
+                File.Delete(oldestFirst[i]);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // 오래된 파일 하나가 잠겨 있어도 나머지는 정리하고 이미 성공한 저장을 실패시키지 않는다.
+            }
+        }
     }
 
     private static void WriteAtomic(string path, string content)

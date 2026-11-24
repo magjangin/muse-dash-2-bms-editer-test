@@ -116,7 +116,8 @@ public partial class MainWindow
         }
 
         // 시작하는 동안 두 번째 실행이 넘긴 경로가 있으면 이제 연다.
-        var pending = _deferredExternalOpen ?? App.TakePendingExternalOpen();
+        var pendingFromApp = App.TakePendingExternalOpen();
+        var pending = _deferredExternalOpen ?? pendingFromApp;
         _deferredExternalOpen = null;
         if (IsChartPath(pending))
             await HandleExternalOpenAsync(pending!);
@@ -167,10 +168,10 @@ public partial class MainWindow
 
     private void RestoreWindowPlacement(AppSettings settings)
     {
-        if (settings.WindowWidth is > 200 and { } width)
+        if (settings.WindowWidth is { } width && double.IsFinite(width) && width > 200)
             Width = width;
 
-        if (settings.WindowHeight is > 200 and { } height)
+        if (settings.WindowHeight is { } height && double.IsFinite(height) && height > 200)
             Height = height;
 
         // 모니터를 뺐으면 저장해 둔 자리가 화면 밖일 수 있다. 그때는 운영체제에 맡긴다.

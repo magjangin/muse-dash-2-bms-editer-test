@@ -35,13 +35,14 @@ public static class BmsWriter
         AppendIfPresent(sb, "#GENRE", genre, nl);
 
         // BPM·PLAYER·RANK 는 재생에 반드시 필요한 값이라 비어 있을 수 없다. 늘 쓴다.
-        sb.Append("#BPM ").Append(bpm.ToString("0.######", CultureInfo.InvariantCulture)).Append(nl);
+        var safeBpm = double.IsFinite(bpm) && bpm > 0 ? bpm : 120.0;
+        sb.Append("#BPM ").Append(safeBpm.ToString("0.######", CultureInfo.InvariantCulture)).Append(nl);
         sb.Append("#PLAYER ").Append((player + 1).ToString(CultureInfo.InvariantCulture)).Append(nl);
         sb.Append("#RANK ").Append(rank.ToString(CultureInfo.InvariantCulture)).Append(nl);
 
         AppendIfPresent(sb, "#PLAYLEVEL", level, nl);
 
-        if (Math.Abs(chart.Header.AudioOffsetMs) > 1e-4)
+        if (double.IsFinite(chart.Header.AudioOffsetMs) && Math.Abs(chart.Header.AudioOffsetMs) > 1e-4)
             sb.Append("#BMSEDITER_OFFSET ").Append(chart.Header.AudioOffsetMs.ToString("0.####", CultureInfo.InvariantCulture)).Append(nl);
 
         // 에디터가 다루지 않는 헤더(#TOTAL, #STAGEFILE, #BPMxx, #STOPxx, #BMPxx 등)를

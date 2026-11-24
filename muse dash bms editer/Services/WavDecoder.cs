@@ -86,7 +86,7 @@ public static class WavDecoder
 
                     var remaining = safeChunkSize - readBytes;
                     if (remaining > 0)
-                        reader.ReadBytes(remaining);
+                        stream.Seek(remaining, SeekOrigin.Current);
                 }
                 else if (chunkId == "data")
                 {
@@ -95,7 +95,7 @@ public static class WavDecoder
                 }
                 else
                 {
-                    reader.ReadBytes(safeChunkSize);
+                    stream.Seek(safeChunkSize, SeekOrigin.Current);
                 }
 
                 // RIFF 청크 2바이트 워드 패딩 처리
@@ -111,6 +111,34 @@ public static class WavDecoder
             // PCM(1) 또는 IEEE Float(3) 지원
             if (audioFormat != 1 && audioFormat != 3)
                 return null;
+
+            // 가장 흔한 16-bit PCM 44.1kHz 스테레오/모노는 float[] 중간 할당 없이 바로 변환한다.
+            if (audioFormat == 1 && bitsPerSample == 16 && sampleRate == TargetSampleRate)
+            {
+                if (channels == 2)
+                {
+                    var sampleCount = (dataBytes.Length / 4) * 2;
+                    if (sampleCount == 0) return null;
+                    var direct = new short[sampleCount];
+                    Buffer.BlockCopy(dataBytes, 0, direct, 0, sampleCount * sizeof(short));
+                    return new PcmAudioData(direct, TargetSampleRate, TargetChannels);
+                }
+
+                if (channels == 1)
+                {
+                    var monoCount = dataBytes.Length / sizeof(short);
+                    if (monoCount == 0) return null;
+                    var stereo = new short[monoCount * 2];
+                    var monoSpan = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, short>(dataBytes.AsSpan(0, monoCount * sizeof(short)));
+                    for (var i = 0; i < monoCount; i++)
+                    {
+                        var s = monoSpan[i];
+                        stereo[i * 2] = s;
+                        stereo[i * 2 + 1] = s;
+                    }
+                    return new PcmAudioData(stereo, TargetSampleRate, TargetChannels);
+                }
+            }
 
             var sourceFrames = ExtractFrames(dataBytes, audioFormat, channels, bitsPerSample);
             if (sourceFrames is null || sourceFrames.Length == 0)
@@ -135,7 +163,11 @@ public static class WavDecoder
 
             var sampleCount = data.Pcm16.Length / sizeof(short);
             var shorts = new short[sampleCount];
-            Buffer.BlockCopy(data.Pcm16, 0, shorts, 0, data.Pcm16.Length);
+            Buffer.BlockCopy(data.Pcm16, 0, shorts, 0, sampleCount * sizeof(short));
+
+            // 이미 44.1kHz 스테레오면 float[]/리샘플링 2회 할당을 생략한다.
+            if (data.SampleRate == TargetSampleRate && data.Channels == TargetChannels)
+                return new PcmAudioData(shorts, TargetSampleRate, TargetChannels);
 
             var frameCount = sampleCount / data.Channels;
             var sourceFrames = new float[frameCount * data.Channels];

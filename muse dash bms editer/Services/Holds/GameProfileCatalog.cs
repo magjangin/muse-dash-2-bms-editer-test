@@ -18,8 +18,16 @@ public sealed class GameProfileCatalog
 {
     private const string ResourcePrefix = "profiles/";
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(200);
+
+    // 사용자 데이터 폴더 아래 외부 프로파일 경로.
+    // 쓰기 금지 경로에 깔린 배포본이나 1번 단일 exe 에서도 리빌드 없이 Muse Dash 2 규칙을 덮어쓸 수 있다.
+    public static string UserProfilesDirectory => Path.Combine(AutoSaveStore.DefaultDataRoot, "profiles");
+
     private static readonly Lazy<GameProfileCatalog> DefaultCatalog =
-        new(() => Load(Path.Combine(AppContext.BaseDirectory, "profiles")));
+        new(() => Load(
+            Path.Combine(AppContext.BaseDirectory, "profiles"),
+            UserProfilesDirectory));
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -42,7 +50,11 @@ public sealed class GameProfileCatalog
         LoadErrors = loadErrors;
     }
 
-    public static GameProfileCatalog Load(string? overrideDirectory)
+    public static GameProfileCatalog Load(string? overrideDirectory) =>
+        Load(new[] { overrideDirectory });
+
+    // 내장 리소스 -> 전달된 디렉터리 순서대로 덮어쓴다(뒤쪽이 우선).
+    public static GameProfileCatalog Load(params string?[] overrideDirectories)
     {
         var byId = new Dictionary<string, GameProfile>(StringComparer.OrdinalIgnoreCase);
         var errors = new List<string>();
@@ -63,9 +75,23 @@ public sealed class GameProfileCatalog
         foreach (var (name, json) in ReadEmbedded())
             TryAdd(name, json);
 
-        if (!string.IsNullOrEmpty(overrideDirectory) && Directory.Exists(overrideDirectory))
+        foreach (var overrideDirectory in overrideDirectories)
         {
-            foreach (var file in Directory.EnumerateFiles(overrideDirectory, "*.json").OrderBy(f => f, StringComparer.Ordinal))
+            if (string.IsNullOrEmpty(overrideDirectory) || !Directory.Exists(overrideDirectory))
+                continue;
+
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(overrideDirectory, "*.json").OrderBy(f => f, StringComparer.Ordinal).ToArray();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                errors.Add($"{overrideDirectory}: {ex.Message}");
+                continue;
+            }
+
+            foreach (var file in files)
             {
                 try
                 {
@@ -122,13 +148,29 @@ public sealed class GameProfileCatalog
         if (string.IsNullOrWhiteSpace(profile.DisplayName))
             profile.DisplayName = profile.Id;
 
-        if (profile.HoldRules.Count == 0)
+        if (profile.HoldRules is null || profile.HoldRules.Count == 0)
             throw new FormatException($"{profile.Id}: holdRules 가 비어 있습니다.");
+
+        profile.PathHints ??= new List<string>();
 
         foreach (var rule in profile.HoldRules)
         {
-            var role = rule.Role;
+            if (rule is null)
+                throw new FormatException($"{profile.Id}: holdRules 에 빈 항목이 있습니다.");
+
+            rule.Channels ??= new List<string>();
+            var role = rule.Role ?? throw new FormatException($"{profile.Id}/{rule.Kind}: role 이 없습니다.");
             var where = $"{profile.Id}/{rule.Kind}";
+
+            role.HeadKeys ??= new List<string>();
+            role.TailKeys ??= new List<string>();
+            role.HeadKeywords ??= new List<string>();
+            role.TailKeywords ??= new List<string>();
+            role.RequiredKeyword ??= "";
+            role.BaseNames ??= new List<string>();
+            role.StripSuffixes ??= new List<string>();
+            role.HeadLabels ??= new List<string>();
+            role.TailLabels ??= new List<string>();
 
             switch (role.Type)
             {
@@ -139,11 +181,23 @@ public sealed class GameProfileCatalog
                 case HoldRoleSource.FileNameUid when profile.UidTable is null:
                     throw new FormatException($"{where}: FileNameUid 는 프로파일에 uidTable 이 있어야 합니다.");
                 case HoldRoleSource.FileNameUid:
+                    if (string.IsNullOrWhiteSpace(profile.UidTable!.Pattern))
+                        throw new FormatException($"{where}: uidTable.pattern 이 비어 있습니다.");
+
+                    profile.UidTable.PrefixTypes ??= new Dictionary<string, string>();
+                    profile.UidTable.TypeCodes ??= new Dictionary<string, string>();
+                    profile.UidTable.ResolvedWideCodes ??= new List<string>();
+                    profile.UidTable.ResolvedTypeCodes ??= new List<string>();
+                    profile.UidTable.FinalPrefixes ??= new Dictionary<string, string>();
+                    profile.UidTable.BlockingKeywords ??= new List<string>();
+                    profile.UidTable.NameFallbacks ??= new List<UidNameFallback>();
+
                     try
                     {
                         _ = new System.Text.RegularExpressions.Regex(
-                            profile.UidTable!.Pattern,
-                            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                            profile.UidTable.Pattern,
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+                            RegexTimeout);
                     }
                     catch (ArgumentException ex)
                     {

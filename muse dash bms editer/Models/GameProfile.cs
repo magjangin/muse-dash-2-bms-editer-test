@@ -10,7 +10,7 @@ namespace bms_editer.Models;
 // 한 게임은 끝 노트를 한 번만 쓰고, 다른 게임은 여러 시작이 끝 하나를 같이 쓰고,
 // 또 다른 게임은 대기 칸이 하나뿐이라 새 시작이 앞 시작을 버린다.
 // 그래서 각 값은 게임 모드의 파서 소스를 읽고 그대로 옮겨 적는다. 값을 고치기 전에
-// Source 에 적힌 코드를 먼저 확인할 것. (docs/specifications/game_profiles.md)
+// Source 에 적힌 코드를 먼저 확인할 것.
 public sealed class GameProfile
 {
     // 콤보박스의 "고르지 않음" 칸. null 을 목록에 넣으면 선택 표시가 흔들려서 빈 프로파일을 둔다.

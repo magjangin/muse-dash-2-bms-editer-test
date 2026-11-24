@@ -10,7 +10,6 @@ namespace bms_editer.Services.Holds;
 // Chart.Notes 를 바꾸지 않는다. 결과는 언제든 버리고 다시 만들 수 있는 파생 정보다.
 // 편집할 때마다 통째로 다시 돈다. 부분 갱신은 캐시가 어긋나는 버그를 부르고,
 // 실측 규모(수백 노트)에서는 전체 재계산이 눈에 띄지 않는다.
-// (docs/specifications/hold_pairing_spec.md §3 불변식 I-3, §7)
 public static class HoldPairingEngine
 {
     public static HoldPairingResult Pair(
@@ -31,7 +30,7 @@ public static class HoldPairingEngine
                 : null;
 
             // 역할은 키음 번호만으로 정해진다. 노트마다 정규식을 돌리면 편집 한 번에 수천 번을 돈다.
-            var roleOfKey = new Dictionary<string, (HoldRole Role, HoldRole Label)>(StringComparer.Ordinal);
+            var roleOfKey = new Dictionary<string, (HoldRole Role, HoldRole Label)>(StringComparer.OrdinalIgnoreCase);
 
             var members = new List<HoldMember>();
             for (var index = 0; index < notes.Count; index++)

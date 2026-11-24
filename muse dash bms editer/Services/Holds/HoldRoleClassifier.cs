@@ -135,6 +135,7 @@ internal static class HoldRoleClassifier
 // 그 뒤의 샌드백이 전부 뒤집힌다.
 internal static class UidTypeResolver
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(200);
     private static readonly ConcurrentDictionary<string, Regex> Patterns = new();
 
     public static string? Resolve(UidTable table, string wavText)
@@ -142,9 +143,20 @@ internal static class UidTypeResolver
         var name = HoldRoleClassifier.FileNameWithoutExtension(wavText);
         var lower = name.ToLowerInvariant();
 
-        var regex = Patterns.GetOrAdd(table.Pattern, p => new Regex(p, RegexOptions.CultureInvariant));
-        var match = regex.Match(name);
-        var uid = match.Success ? match.Groups[match.Groups.Count > 1 ? 1 : 0].Value : null;
+        string? uid = null;
+        try
+        {
+            var regex = Patterns.GetOrAdd(
+                table.Pattern,
+                p => new Regex(p, RegexOptions.CultureInvariant, RegexTimeout));
+            var match = regex.Match(name);
+            if (match.Success)
+                uid = match.Groups[match.Groups.Count > 1 ? 1 : 0].Value;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            uid = null;
+        }
 
         string? type = null;
         var resolved = false;

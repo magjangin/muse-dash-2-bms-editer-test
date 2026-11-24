@@ -179,7 +179,7 @@ Shift_JIS·CP949 차트에 그 인코딩에 없는 글자(예: Shift_JIS 차트�
 ### ~~텍스트 편집기에서 고친 내용이 사라졌다~~ (해결, 다음 배포에 포함)
 
 연 뒤에 파일이 밖에서 바뀌었으면 창으로 돌아올 때 알리고, 저장할 때 **덮어쓰기 / 다시 열기 / 취소** 를 묻습니다.
-덮어쓴 뒤에 후회해도 저장 전 내용이 `%LocalAppData%\muse dash bms editer\backups\` 에 10세대까지 남습니다.
+덮어쓴 뒤에 후회해도 저장 전 내용이 `%LocalAppData%\muse dash 2 bms editer\backups\` 에 10세대까지 남습니다.
 
 ---
 
@@ -211,6 +211,6 @@ Shift_JIS·CP949 차트에 그 인코딩에 없는 글자(예: Shift_JIS 차트�
 ## 💥 앱이 꺼졌다
 
 * **자동 저장이 1분마다 돕니다.** 다음에 앱을 켜면 **작업 복구** 창이 뜹니다. 복구해도 원본 파일은 저장하기 전까지 바뀌지 않습니다.
-* 저장해 둔 파일이 이상하면 옆의 **`.bak`**(그 직전 저장본)이나 `%LocalAppData%\muse dash bms editer\backups\`(10세대 + 처음 열었을 때의 `original.bms`)를 확인하십시오.
-* **`%LocalAppData%\muse dash bms editer\logs\`** 에 `crash-날짜-시각.log` 가 남아 있으면 원인이 적혀 있습니다. 문제를 알릴 때 같이 보내 주십시오. 로그는 **최근 20개만** 남고 오래된 것부터 지워집니다.
+* 저장해 둔 파일이 이상하면 옆의 **`.bak`**(그 직전 저장본)이나 `%LocalAppData%\muse dash 2 bms editer\backups\`(10세대 + 처음 열었을 때의 `original.bms`)를 확인하십시오.
+* **`%LocalAppData%\muse dash 2 bms editer\logs\`** 에 `crash-날짜-시각.log` 가 남아 있으면 원인이 적혀 있습니다. 문제를 알릴 때 같이 보내 주십시오. 로그는 **최근 20개만** 남고 오래된 것부터 지워집니다.
 * 클릭 처리 중의 오류는 앱을 끄지 않고 창으로 알립니다. **그 창이 뜨면 먼저 저장하십시오.**

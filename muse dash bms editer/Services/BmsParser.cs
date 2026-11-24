@@ -146,7 +146,8 @@ public static partial class BmsParser
             var bpmMatch = BpmRegex().Match(line);
             if (bpmMatch.Success)
             {
-                if (double.TryParse(bpmMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempBpm))
+                if (double.TryParse(bpmMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempBpm)
+                    && double.IsFinite(tempBpm) && tempBpm > 0)
                 {
                     parsedBpm = tempBpm;
                 }
@@ -157,7 +158,7 @@ public static partial class BmsParser
             if (extendedBpmMatch.Success)
             {
                 if (double.TryParse(extendedBpmMatch.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tableBpm)
-                    && tableBpm > 0)
+                    && double.IsFinite(tableBpm) && tableBpm > 0)
                 {
                     chart.BpmTable[extendedBpmMatch.Groups[1].Value.ToUpperInvariant()] = tableBpm;
                 }
@@ -198,7 +199,8 @@ public static partial class BmsParser
             var audioOffsetMatch = AudioOffsetRegex().Match(line);
             if (audioOffsetMatch.Success)
             {
-                if (double.TryParse(audioOffsetMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempOffset))
+                if (double.TryParse(audioOffsetMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var tempOffset)
+                    && double.IsFinite(tempOffset))
                     chart.Header.AudioOffsetMs = tempOffset;
                 continue;
             }
@@ -241,12 +243,13 @@ public static partial class BmsParser
 
             // '#' 로 시작하지 않는 줄은 주석이다(`*----` 같은 구분선이 흔하다).
             // 예전에는 원문 보존 대상에서 빠져 저장할 때 통째로 사라졌다.
+            // 조건 블록(#IF~#ENDIF) 안의 주석은 현재 마디·갈래에 붙여 블록 밖으로 탈출하지 않게 한다.
             if (!line.StartsWith('#'))
             {
                 chart.PreservedLines.Add(new BmsRawLine
                 {
                     Text = line,
-                    Measure = -1,
+                    Measure = currentBranchId > 0 ? currentMeasure : -1,
                     Order = lineIndex,
                     BranchId = currentBranchId,
                 });
@@ -278,14 +281,15 @@ public static partial class BmsParser
 
                 // 데이터 줄도 아니고 1단계에서 읽어간 헤더도 아니면 에디터가 모르는 줄이다.
                 // 저장할 때 그대로 되돌려 놓으려고 원문을 보관한다.
+                // 조건 블록 안의 확장 태그는 해당 갈래 자리에 남긴다.
                 if (!IsConsumedHeader(line))
                 {
                     chart.PreservedLines.Add(new BmsRawLine
                     {
                         Text = line,
-                        Measure = -1,
+                        Measure = currentBranchId > 0 ? currentMeasure : -1,
                         Order = lineIndex,
-                        BranchId = 0,
+                        BranchId = currentBranchId,
                     });
                 }
                 continue;
@@ -446,7 +450,8 @@ public static partial class BmsParser
         // 02: 마디 길이 배율. 슬롯이 아니라 실수 하나가 통째로 온다. (#00002:0.75)
         if (string.Equals(channel, "02", StringComparison.OrdinalIgnoreCase))
         {
-            if (double.TryParse(data, NumberStyles.Float, CultureInfo.InvariantCulture, out var length) && length > 0)
+            if (double.TryParse(data, NumberStyles.Float, CultureInfo.InvariantCulture, out var length)
+                && double.IsFinite(length) && length > 0)
                 chart.MeasureLengths[measure] = length;
             return;
         }
@@ -566,22 +571,32 @@ public static partial class BmsParser
         string baseDirectory, string mediaPath, Lazy<Dictionary<string, string>> fileNameIndex, out bool guessed)
     {
         guessed = false;
-
-        if (Path.IsPathRooted(mediaPath))
+        if (string.IsNullOrWhiteSpace(mediaPath))
             return mediaPath;
 
-        var directPath = Path.GetFullPath(Path.Combine(baseDirectory, mediaPath));
-        if (File.Exists(directPath))
-            return directPath;
-
-        var fileName = Path.GetFileName(mediaPath);
-        if (fileNameIndex.Value.TryGetValue(fileName, out var indexedPath))
+        try
         {
-            guessed = true;
-            return indexedPath;
-        }
+            if (Path.IsPathRooted(mediaPath))
+                return mediaPath;
 
-        return directPath;
+            var directPath = Path.GetFullPath(Path.Combine(baseDirectory, mediaPath));
+            if (File.Exists(directPath))
+                return directPath;
+
+            var fileName = Path.GetFileName(mediaPath);
+            if (!string.IsNullOrEmpty(fileName) && fileNameIndex.Value.TryGetValue(fileName, out var indexedPath))
+            {
+                guessed = true;
+                return indexedPath;
+            }
+
+            return directPath;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // 깨진 인코딩이나 불법 경로 문자 한 줄 때문에 차트 전체 열기가 실패하지 않도록 원문을 유지한다.
+            return mediaPath;
+        }
     }
 
     // ── 인코딩 감지 ────────────────────────────────────────────────────────────

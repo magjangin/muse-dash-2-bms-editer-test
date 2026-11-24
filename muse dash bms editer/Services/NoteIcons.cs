@@ -104,6 +104,7 @@ public sealed class NoteIconCatalog : IDisposable
             if (Directory.Exists(cwdDir))
                 return cwdDir;
 
+#if DEBUG
             try
             {
                 var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -124,6 +125,7 @@ public sealed class NoteIconCatalog : IDisposable
             {
                 // 경로 탐색 중 예외 무시
             }
+#endif
 
             return baseDir;
         }

@@ -146,8 +146,7 @@ muse dash bms editer/
   - [`IbmscBpmDetector`](muse%20dash%20bms%20editer/Services/IbmscBpmDetector.cs) 는 iBMSC 와 같은 숫자를 보려고 옮긴 것이라, cos 만 쓰는 점수 식·저음 필터의 채널 오해까지 그대로 둡니다. "고치면" 비교 기준이 사라집니다. 소수점은 [`PreciseBpmDetector`](muse%20dash%20bms%20editer/Services/PreciseBpmDetector.cs) 몫입니다.
 
 * ❌ **테스트가 실제 사용자 폴더에 쓰기**:
-  - `NoteIconImporter.Import` 가 대상과 상관없이 `%LocalAppData%\muse dash 2 bms editer
-ote_icon_source.txt` 에 "마지막으로 가져온 폴더"를 적어서, `dotnet test` 를 돌릴 때마다 사용자의 기록이 곧 지워질 임시 경로로 덮어써졌습니다. 지금은 대상이 `UserFolder` 일 때만 적습니다. 새 테스트가 사용자 데이터 폴더를 건드리지 않는지 확인하십시오(원본 뮤즈 대시 1 에디터에도 같은 문제가 있음).
+  - `NoteIconImporter.Import` 가 대상과 상관없이 `%LocalAppData%\muse dash 2 bms editer\note_icon_source.txt` 에 "마지막으로 가져온 폴더"를 적어서, `dotnet test` 를 돌릴 때마다 사용자의 기록이 곧 지워질 임시 경로로 덮어써졌습니다. 지금은 대상이 `UserFolder` 일 때만 적습니다. 새 테스트가 사용자 데이터 폴더를 건드리지 않는지 확인하십시오(원본 뮤즈 대시 1 에디터에도 같은 문제가 있음).
 * ❌ **1번/2번을 그림 리소스 유무로만 가르기**:
   - `note_icons` 가 없는 PC 에서 1번 프로필로 빌드하면 exe 아이콘은 골드 1인데 창 제목·창 아이콘은 "2. 릴리즈용"으로 떴습니다. 지금은 `EmbedNoteIcons=true` 일 때 csproj 가 `AssemblyMetadata("BmsEditerEdition", "personal")` 를 넣고 `MainWindowViewModel.DetectPersonalEdition` 이 그것을 먼저 봅니다(표식 없는 빌드만 리소스로 판정).
 
@@ -169,8 +168,9 @@ ote_icon_source.txt` 에 "마지막으로 가져온 폴더"를 적어서, `dotne
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.2.0 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.5). **테스트 467개 전부 통과** (2026-11-22, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `17772e6` 까지 병합됨.
-  Debug exe 로 단일 인스턴스 실동작 확인(두 번째 실행은 첫 창으로 넘기고 바로 종료, 대기 중 CPU 0). `build_publish.ps1` 로 1번·2번을 새로 빌드해 창 제목 `(1. 개인용)`/`(2. 릴리즈용)` 확인.
+* **현재 버전**: v0.2.1 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.5). **테스트 478개 전부 통과** (2026-11-24, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `23c3939` 까지 병합됨(원본의 `muse dash 1` 리네임 커밋은 이 포크 정체성을 유지).
+  - **v0.2.1 주요 보강**: 업데이트 내성 강화(`GameProfileCatalog` 사용자 폴더 `%LocalAppData%\muse dash 2 bms editer\profiles\` 오버라이드 및 `muse_dash_2` 우선 탐색·null JSON 방어·정규식 타임아웃, `BmsParser`/`BmsWriter`/`ChartTimeline` 비정상 BPM·불법 경로·조건 블록 내 주석/확장 태그 보존, `AppSettings`/`AutoSaveStore`/`Program` 파이프 타임아웃·상대 경로 정규화), `ImportKeysoundsFrom` Undo/Dirty/Hold/캐시 동기화 버그 수정, 성능 병목 해결(`ChartTimeline` 균일 BPM O(1) 패스트패스, `NoteGridControl` `AffectsMeasure` 조건부 분리 및 렌더당 축 1회 캡처, `VideoPreviewControl` 지연 WebView2 기동 및 레이스/이중 로드 제거, `KeySoundPlayer` 락프리 보이스 큐·1회 `PrepareHeader`·프리로드 취소 토큰, `WavDecoder` 44.1kHz 16-bit 패스트패스, `OggAudioPlayer` `GCHandle` 누수 방지), 빌드 스크립트 `$PSScriptRoot` 경로 고정 및 `--no-incremental` 클린 빌드 강화, 레거시 `win-x64.pubxml` 제거.
+  - `build_publish.ps1` 로 1번·2번을 새로 빌드해 검증 완료.
   ⚠️ 이 PC 에는 아직 뮤즈 대시 2 `note_icons` 가 없어 **1번도 그림 없이** 빌드됩니다(스크립트가 노란 경고를 띄움). 1번 규칙(에셋 100% 내장)은 그림을 넣은 뒤 다시 빌드해야 충족됩니다.
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
 * **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,

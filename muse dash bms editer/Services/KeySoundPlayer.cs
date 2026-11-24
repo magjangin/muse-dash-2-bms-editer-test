@@ -41,7 +41,12 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
     // 키음 폴더를 빠뜨린 차트에서 노트마다 디스크를 두드리지도 않는다.
     private const long MissingRetryMilliseconds = 2000;
     private readonly List<Voice> _activeVoices = new();
-    private readonly object _lock = new();
+    private readonly ConcurrentQueue<Voice> _pendingVoices = new();
+    private readonly object _preloadLock = new();
+    private CancellationTokenSource? _preloadCts;
+    private long _cacheGeneration;
+    private volatile int _stopGeneration;
+    private int _observedStopGeneration;
 
     // 약 23ms. 버퍼 세 개가 앞서 나가 있으므로 이 값이 곧 키음이 늦게 들리는 양이다.
     // 예전에는 40ms 라 노트보다 최대 120ms 늦게 들렸다.
@@ -114,29 +119,67 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
     // 다른 차트를 열 때 이전 곡의 키음 PCM 이 메모리에 남지 않도록 비운다.
     public void ClearCache()
     {
+        Interlocked.Increment(ref _cacheGeneration);
+        CancelPreload();
         StopAll();
         _cache.Clear();
+        _pendingPlays.Clear();
         _missingUntil.Clear();
+    }
+
+    private CancellationToken ResetPreloadToken()
+    {
+        lock (_preloadLock)
+        {
+            _preloadCts?.Cancel();
+            _preloadCts?.Dispose();
+            _preloadCts = new CancellationTokenSource();
+            return _preloadCts.Token;
+        }
+    }
+
+    private void CancelPreload()
+    {
+        lock (_preloadLock)
+        {
+            _preloadCts?.Cancel();
+            _preloadCts?.Dispose();
+            _preloadCts = null;
+        }
     }
 
     public void PreloadAsync(IEnumerable<string> filePaths)
     {
         var snapshot = filePaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var token = ResetPreloadToken();
+        var generation = Interlocked.Read(ref _cacheGeneration);
+
         Task.Run(() =>
         {
-            var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2) };
-
-            // 키음이 수백 개인 차트가 흔하다. 하나씩 읽으면 재생을 눌렀을 때까지 다 못 읽는다.
-            Parallel.ForEach(snapshot, options, (path, state) =>
+            var options = new ParallelOptions
             {
-                if (_isDisposed)
-                {
-                    state.Stop();
-                    return;
-                }
+                MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2),
+                CancellationToken = token,
+            };
 
-                Preload(path);
-            });
+            try
+            {
+                // 키음이 수백 개인 차트가 흔하다. 하나씩 읽으면 재생을 눌렀을 때까지 다 못 읽는다.
+                Parallel.ForEach(snapshot, options, (path, state) =>
+                {
+                    if (_isDisposed || token.IsCancellationRequested || Interlocked.Read(ref _cacheGeneration) != generation)
+                    {
+                        state.Stop();
+                        return;
+                    }
+
+                    Preload(path);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // 차트가 바뀌거나 닫히면 이전 프리로드를 조용히 멈춘다.
+            }
         });
     }
 
@@ -158,18 +201,22 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         if (_missingUntil.TryGetValue(filePath, out var retryAt) && Environment.TickCount64 < retryAt)
             return;
 
+        var generation = Interlocked.Read(ref _cacheGeneration);
         if (_pendingPlays.TryAdd(filePath, 0))
-            Task.Run(() => LoadAndPlay(filePath));
+            Task.Run(() => LoadAndPlay(filePath, generation));
     }
 
-    private void LoadAndPlay(string filePath)
+    private void LoadAndPlay(string filePath, long generation)
     {
         try
         {
-            if (_isDisposed)
+            if (_isDisposed || Interlocked.Read(ref _cacheGeneration) != generation)
                 return;
 
             var pcm = GetOrLoad(filePath);
+            if (_isDisposed || Interlocked.Read(ref _cacheGeneration) != generation)
+                return;
+
             if (pcm is null && !File.Exists(filePath))
             {
                 _missingUntil[filePath] = Environment.TickCount64 + MissingRetryMilliseconds;
@@ -196,10 +243,7 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         if (_isDisposed)
             return;
 
-        lock (_lock)
-        {
-            _activeVoices.Add(new Voice(pcm.Samples));
-        }
+        _pendingVoices.Enqueue(new Voice(pcm.Samples));
 
         try
         {
@@ -225,10 +269,8 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
 
     public void StopAll()
     {
-        lock (_lock)
-        {
-            _activeVoices.Clear();
-        }
+        Interlocked.Increment(ref _stopGeneration);
+        while (_pendingVoices.TryDequeue(out _)) { }
     }
 
     private void StartAudioWorker()
@@ -247,7 +289,6 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
     private void AudioLoop()
     {
         var shortBuffer = new short[BufferFrames * Channels];
-        var byteBuffer = new byte[BufferFrames * BlockAlign];
         var currentBufferIndex = 0;
         var silentBuffersCount = 0;
 
@@ -256,7 +297,7 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
             // 백그라운드 스레드의 예외는 프로세스를 그대로 끝낸다. 소리만 포기하고 앱은 살린다.
             try
             {
-                MixOneBuffer(shortBuffer, byteBuffer, ref currentBufferIndex, ref silentBuffersCount);
+                MixOneBuffer(shortBuffer, ref currentBufferIndex, ref silentBuffersCount);
             }
             catch (Exception ex)
             {
@@ -270,13 +311,23 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         CloseWaveOut();
     }
 
-    private void MixOneBuffer(short[] shortBuffer, byte[] byteBuffer, ref int currentBufferIndex, ref int silentBuffersCount)
+    private void DrainPendingVoices()
     {
-        bool hasVoices;
-        lock (_lock)
+        var stopGen = _stopGeneration;
+        if (stopGen != _observedStopGeneration)
         {
-            hasVoices = _activeVoices.Count > 0;
+            _activeVoices.Clear();
+            _observedStopGeneration = stopGen;
         }
+
+        while (_pendingVoices.TryDequeue(out var voice))
+            _activeVoices.Add(voice);
+    }
+
+    private void MixOneBuffer(short[] shortBuffer, ref int currentBufferIndex, ref int silentBuffersCount)
+    {
+        DrainPendingVoices();
+        var hasVoices = _activeVoices.Count > 0;
 
         if (!hasVoices && silentBuffersCount >= BufferCount && AreAllHeadersDone())
         {
@@ -290,6 +341,7 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         {
             // 장치를 못 열면 보이스가 소비되지 않고 쌓이다가, 장치가 돌아오는 순간 한꺼번에 터진다.
             StopAll();
+            _activeVoices.Clear();
             Thread.Sleep(30);
             return;
         }
@@ -303,53 +355,45 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
             return;
         }
 
+        // 대기 중 들어온 보이스까지 함께 믹싱
+        DrainPendingVoices();
+
         // 믹싱 버퍼 초기화
         Array.Clear(shortBuffer, 0, shortBuffer.Length);
 
         var gain = _gain;
+        var mixedAnyVoice = _activeVoices.Count > 0;
 
-        bool mixedAnyVoice;
-        lock (_lock)
+        for (var v = _activeVoices.Count - 1; v >= 0; v--)
         {
-            mixedAnyVoice = _activeVoices.Count > 0;
-            for (var v = _activeVoices.Count - 1; v >= 0; v--)
+            var voice = _activeVoices[v];
+            var remainingSamples = voice.Samples.Length - voice.Position;
+            var samplesToCopy = Math.Min(remainingSamples, shortBuffer.Length);
+
+            for (var i = 0; i < samplesToCopy; i++)
             {
-                var voice = _activeVoices[v];
-                var remainingSamples = voice.Samples.Length - voice.Position;
-                var samplesToCopy = Math.Min(remainingSamples, shortBuffer.Length);
+                var mixed = shortBuffer[i] + ((voice.Samples[voice.Position + i] * gain) >> 8);
+                shortBuffer[i] = (short)Math.Clamp(mixed, short.MinValue, short.MaxValue);
+            }
 
-                for (var i = 0; i < samplesToCopy; i++)
-                {
-                    var mixed = shortBuffer[i] + ((voice.Samples[voice.Position + i] * gain) >> 8);
-                    shortBuffer[i] = (short)Math.Clamp(mixed, short.MinValue, short.MaxValue);
-                }
-
-                voice.Position += samplesToCopy;
-                if (voice.Position >= voice.Samples.Length)
-                {
-                    _activeVoices.RemoveAt(v);
-                }
+            voice.Position += samplesToCopy;
+            if (voice.Position >= voice.Samples.Length)
+            {
+                // 순서가 필요 없으므로 마지막 원소와 맞바꿔 O(1) 제거
+                var last = _activeVoices.Count - 1;
+                _activeVoices[v] = _activeVoices[last];
+                _activeVoices.RemoveAt(last);
             }
         }
 
         silentBuffersCount = mixedAnyVoice ? 0 : silentBuffersCount + 1;
 
-        // short[] -> byte[] 변환 후 네이티브 버퍼에 복사
-        Buffer.BlockCopy(shortBuffer, 0, byteBuffer, 0, byteBuffer.Length);
-        Marshal.Copy(byteBuffer, 0, _buffers[currentBufferIndex], byteBuffer.Length);
+        // short[] 를 네이티브 버퍼에 바로 복사 (중간 byte[] 복사 제거)
+        Marshal.Copy(shortBuffer, 0, _buffers[currentBufferIndex], shortBuffer.Length);
 
-        // waveOutWrite
-        if ((hdr->Flags & WHDR_PREPARED) != 0)
-        {
-            WaveOutUnprepareHeader(_waveOut, _headerPtrs[currentBufferIndex], sizeof(WaveHeader));
-        }
-
-        hdr->Data = _buffers[currentBufferIndex];
-        hdr->BufferLength = byteBuffer.Length;
+        // 헤더는 EnsureWaveOutOpen 에서 1회 Prepare 되었으므로 그대로 재사용한다.
         hdr->BytesRecorded = 0;
-        hdr->Flags = 0;
-
-        WaveOutPrepareHeader(_waveOut, _headerPtrs[currentBufferIndex], sizeof(WaveHeader));
+        hdr->Flags &= ~WHDR_DONE;
         WaveOutWrite(_waveOut, _headerPtrs[currentBufferIndex], sizeof(WaveHeader));
 
         currentBufferIndex = (currentBufferIndex + 1) % BufferCount;
@@ -380,14 +424,23 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
             for (var i = 0; i < BufferCount; i++)
             {
                 var hdr = (WaveHeader*)_headerPtrs[i];
-                hdr->Flags = WHDR_DONE;
+                hdr->Data = _buffers[i];
+                hdr->BufferLength = BufferFrames * BlockAlign;
+                hdr->BytesRecorded = 0;
+                hdr->Flags = 0;
+                if (WaveOutPrepareHeader(_waveOut, _headerPtrs[i], sizeof(WaveHeader)) != 0)
+                {
+                    CloseWaveOut();
+                    return false;
+                }
+                hdr->Flags |= WHDR_DONE;
             }
 
             return true;
         }
         catch
         {
-            _waveOut = IntPtr.Zero;
+            CloseWaveOut();
             return false;
         }
     }
@@ -438,6 +491,7 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
     {
         if (_isDisposed) return;
         _isDisposed = true;
+        CancelPreload();
         _wakeEvent.Set();
 
         try
