@@ -233,29 +233,51 @@ public sealed class NoteIconCatalog : IDisposable
 
             if (_byUid.TryGetValue(uid, out var cached))
                 return cached;
+        }
 
-            NoteIcon? icon = null;
-            var baseUid = SpeedOneOf(uid);
-            try
+        // 디스크 읽기와 픽셀 처리는 락 밖에서 수행해 Dispose/다른 조회를 블로킹하지 않는다.
+        Bitmap? ownPrepared = null;
+        NoteIcon? icon = null;
+        var baseUid = SpeedOneOf(uid);
+        try
+        {
+            // 속도별 그림 파일이 따로 있으면 그것을, 없으면 속도 1 그림(Bitmap)을 공유해서 쓴다.
+            Bitmap? prepared = null;
+            using (var ownSource = OpenSource(uid))
             {
-                // 속도별 그림 파일이 따로 있으면 그것을, 없으면 속도 1 그림(Bitmap)을 공유해서 쓴다.
-                Bitmap? prepared = null;
-                using (var ownSource = OpenSource(uid))
+                if (ownSource is not null)
                 {
-                    if (ownSource is not null)
-                        prepared = NoteIconImage.Prepare(ownSource, IsHammer(uid));
+                    ownPrepared = NoteIconImage.Prepare(ownSource, IsHammer(uid));
+                    prepared = ownPrepared;
                 }
-
-                if (prepared is null && baseUid != uid)
-                    prepared = Find(baseUid)?.Image;
-
-                if (prepared is not null)
-                    icon = new NoteIcon(prepared, ScaleFor(baseUid), DirectionOf(baseUid), BossMarkerOf(uid), NoteSpeed.Of(uid));
             }
-            catch (Exception)
+
+            if (prepared is null && baseUid != uid)
+                prepared = Find(baseUid)?.Image;
+
+            if (prepared is not null)
+                icon = new NoteIcon(prepared, ScaleFor(baseUid), DirectionOf(baseUid), BossMarkerOf(uid), NoteSpeed.Of(uid));
+        }
+        catch (Exception)
+        {
+            // 깨진 그림 한 장이 에디터를 멈추게 하지 않는다. 그 노트는 단색으로 그려진다.
+            ownPrepared?.Dispose();
+            ownPrepared = null;
+            icon = null;
+        }
+
+        lock (_gate)
+        {
+            if (_disposed)
             {
-                // 깨진 그림 한 장이 에디터를 멈추게 하지 않는다. 그 노트는 단색으로 그려진다.
-                icon = null;
+                ownPrepared?.Dispose();
+                return null;
+            }
+
+            if (_byUid.TryGetValue(uid, out var existing))
+            {
+                ownPrepared?.Dispose();
+                return existing;
             }
 
             _byUid[uid] = icon;

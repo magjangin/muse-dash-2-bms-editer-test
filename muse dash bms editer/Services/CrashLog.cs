@@ -19,24 +19,29 @@ public static class CrashLog
         AppDataFolderName,
         "logs");
 
+    private static readonly object WriteGate = new();
+
     // 쓴 파일의 경로. 쓰지 못했으면 null.
     public static string? Write(Exception exception, string source)
     {
-        try
+        lock (WriteGate)
         {
-            Directory.CreateDirectory(Folder);
+            try
+            {
+                Directory.CreateDirectory(Folder);
 
-            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-            var path = Path.Combine(Folder, $"crash-{stamp}.log");
-            var version = typeof(CrashLog).Assembly.GetName().Version;
+                var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+                var path = Path.Combine(Folder, $"crash-{stamp}.log");
+                var version = typeof(CrashLog).Assembly.GetName().Version;
 
-            File.AppendAllText(path, $"[{source}] v{version}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
-            TrimOldLogs();
-            return path;
-        }
-        catch (Exception)
-        {
-            return null;
+                File.AppendAllText(path, $"[{source}] v{version}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+                TrimOldLogs();
+                return path;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 

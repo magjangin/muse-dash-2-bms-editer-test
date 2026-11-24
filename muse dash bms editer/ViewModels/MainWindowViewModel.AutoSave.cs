@@ -35,7 +35,17 @@ public sealed partial class MainWindowViewModel
         _autoSaveTimer.Start();
     }
 
-    private async void OnAutoSaveTick(object? sender, EventArgs e) => await AutoSaveNowAsync();
+    private async void OnAutoSaveTick(object? sender, EventArgs e)
+    {
+        try
+        {
+            await AutoSaveNowAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"자동 저장 타이머 예외: {ex.Message}");
+        }
+    }
 
     // 내용은 UI 스레드에서 만들고(문서를 읽는 동안 편집이 끼면 안 된다) 쓰기만 뒤로 넘긴다.
     public async Task AutoSaveNowAsync()
@@ -62,7 +72,8 @@ public sealed partial class MainWindowViewModel
         try
         {
             await Task.Run(() => store.Write(sessionId, content, meta));
-            _autoSavedRevision = revision;
+            if (store.CurrentSessionId == sessionId)
+                _autoSavedRevision = revision;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

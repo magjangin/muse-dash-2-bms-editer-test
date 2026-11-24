@@ -40,7 +40,7 @@
 | **[LaneDefinition.cs](../../muse%20dash%20bms%20editer/Models/LaneDefinition.cs)** | 격자에 띄울 레인 목록입니다. 기본값은 `16 · 11 · 12 · 13 · 14 · 15 · 18` 입니다. 뮤즈 대시가 읽는 채널은 `13 · 14 · 15 · 18` 뿐이고, 나머지는 건반 에디터 시절 레인이 남아 있는 것입니다. |
 | **[GameProfile.cs](../../muse%20dash%20bms%20editer/Models/GameProfile.cs)** | 게임 하나의 규칙입니다. 홀드 짝 규칙(`HoldRule` — 종류, 채널, 시작/끝을 가리는 방법 `HoldRoleRule`, 짝 방식 `HoldPairingPolicy`, 범위 `HoldScope`), UID 로 종류를 정하는 표(`UidTable`), 다운믹스용 화면 배치(`DownmixLayout`), 규칙의 확인 수준(`ProfileVerification`)을 담습니다. 값은 `Profiles/*.json` 에서 읽습니다. |
 | **[HoldModels.cs](../../muse%20dash%20bms%20editer/Models/HoldModels.cs)** | 짝 검사 결과입니다. 짝 하나(`HoldLink` — 머리·꼬리 노트를 가리키기만 함), 진단 한 줄(`HoldDiagnostic` — 고아 시작/끝, 순서 뒤집힘 등), 둘을 묶은 `HoldPairingResult` 입니다. |
-| **[WavSearch.cs](../../muse%20dash%20bms%20editer/Models/WavSearch.cs)** | 키음 목록·팔레트의 공백 구분 검색어 매칭(`Matches`)과 씬 번호로 키음 범위를 줄이는 헬퍼(`FilterByScene`, `ExtractSceneNumber`)입니다. |
+| **[WavSearch.cs](../../muse%20dash%20bms%20editer/Models/WavSearch.cs)** | 키음 파일명 정리(`CleanName`, `DisplayName`), 씬 라벨(`SceneLabel`), 특성 추출(`Traits`), 공백 구분·초성 검색 매칭(`Matches`) 헬퍼입니다. |
 
 ---
 
@@ -55,14 +55,16 @@
 | **[SafeFileWriter.cs](../../muse%20dash%20bms%20editer/Services/SafeFileWriter.cs)** | 같은 폴더의 임시 파일에 끝까지 쓴 뒤에만 원본과 바꿔치기합니다(`File.Replace`). 직전 내용은 `.bak` 으로 남고, `Replace` 를 못 쓰는 드라이브에서는 `Move(overwrite)` 로 물러납니다. |
 | **[FolderMedia.cs](../../muse%20dash%20bms%20editer/Services/FolderMedia.cs)** | 곡 폴더에서 차트 · 음원(OGG) · 영상을 고르는 규칙입니다. 폴더 이름과 같은 파일이 있으면 그것, 없으면 이름순 첫 번째. 폴더 열기와 건반 BMS 가져오기가 같이 씁니다. |
 | **[WavKey.cs](../../muse%20dash%20bms%20editer/Services/WavKey.cs)** | base-36 키음 번호(`01`~`ZZ`, `001`~`ZZZ`)의 파싱 · 서식 · 자릿수 규칙을 한 곳에 둡니다. |
-| **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 연결하고, 명령줄 인자로 받은 차트 경로를 엽니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). 메뉴의 "탐색기에서 BMS 파일 연결 해제" 가 부릅니다. |
-| **[ShellNotify.cs](../../muse%20dash%20bms%20editer/Services/ShellNotify.cs)** | 파일 저장 및 확장자 연결 변경 시 Windows 탐색기에 `SHChangeNotify` 로 알립니다. |
+| **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 등록/해제합니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). |
+| **[ShellNotify.cs](../../muse%20dash%20bms%20editer/Services/ShellNotify.cs)** | 파일 저장 시 Windows 탐색기에 `SHChangeNotify`(`FileChanged`) 로 알립니다. |
 | **[NoteIconImage.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImage.cs)** | `NoteIcons.cs` 에서 분리한 그림 다듬기(그림자 제거 · 여백 자르기 · 해머 줄 제거와 세우기)입니다. 순수 픽셀 계산이라 카탈로그와 따로 둡니다. |
-| **[NoteIcons.cs](../../muse%20dash%20bms%20editer/Services/NoteIcons.cs)** | `#WAV` 파일명 앞 6자리 UID 에 대응하는 노트 아이콘(`note_icons/<UID>.png`)을 읽고, 그림자 제거·여백 자르기를 거쳐 크기별로 캐시합니다. 속도 2·3(`yy`)도 속도 1 아이콘·방향·배율로 매핑하며, 속도별 그림이 없으면 속도 1 비트맵을 **같이 씁니다**(해제할 때 중복을 걸러 한 번만 `Dispose`). 씬 전환(`0004yy`)에는 방향을 붙이지 않습니다. |
+| **[NoteIcons.cs](../../muse%20dash%20bms%20editer/Services/NoteIcons.cs)** | `#WAV` 파일명 앞 6자리 UID 에 대응하는 노트 아이콘(`note_icons/<UID>.png`)을 읽고(디스크/픽셀 처리는 락 밖에서 수행), 그림자 제거·여백 자르기를 거쳐 캐시합니다. 속도 2·3(`yy`)도 속도 1 아이콘·방향·배율로 매핑하며, 속도별 그림이 없으면 속도 1 비트맵을 **같이 씁니다**(해제할 때 중복을 걸러 한 번만 `Dispose`). 씬 전환(`0004yy`)에는 방향을 붙이지 않습니다. |
 | **[NoteIconImporter.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImporter.cs)** | Spine Support Tool 렌더 폴더에서 게임 노트·보스·하트·음표·씬 전환 PNG 를 찾아 `%LOCALAPPDATA%\muse dash bms editer\note_icons` 에 UID 이름으로 복사합니다. |
-| **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 변환 규칙과 `SceneNoteSpeedResolver` 를 담습니다. |
-| **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | `SceneUid.Of`(파일명 앞 6자리 UID 추출, `NoteIcons.UidOf`·`WavSearch` 가 같이 씀), 구간 씬 바꾸기(`SceneKeyResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
-| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash bms editer\settings.json` 에 보관합니다. 차트 내용은 담지 않으며, 못 읽으면 예외 없이 기본값으로 돌아갑니다. 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. |
+| **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 판별 및 변환 규칙(`NoteSpeed`)을 담습니다. |
+| **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | `SceneUid.Of`(파일명 앞 6자리 UID 추출, `NoteIcons.UidOf`·`WavSearch` 가 같이 씀), 구간 씬·속도 바꾸기(`SceneWavResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
+| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash bms editer\settings.json` 에 보관합니다. 스키마 버전·범위 보정(`Sanitize`)·손상 파일 백업(`.corrupt.bak`)을 지원하며, 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. |
+| **[AutoSaveStore.cs](../../muse%20dash%20bms%20editer/Services/AutoSaveStore.cs)** | `%LocalAppData%\muse dash bms editer\` 아래에 세션별 자동 저장(`autosave\`, 최근 5벌, `session.lock` 보호)과 저장 전 백업(`backups\`, 최근 10세대 + `original.bms`)을 원자적으로 기록·복구·정리합니다. |
+| **[CrashLog.cs](../../muse%20dash%20bms%20editer/Services/CrashLog.cs)** | 예기치 못한 예외를 `%LocalAppData%\muse dash bms editer\logs\crash-yyyyMMdd-HHmmss-fff.log` 에 스레드 안전하게 기록하고 최근 20개만 유지합니다. |
 
 ### 2-2. 시간축 · 되돌리기
 
@@ -77,11 +79,11 @@
 | :--- | :--- |
 | **[OggDecoder.cs](../../muse%20dash%20bms%20editer/Services/OggDecoder.cs)** | 배경 음악(OGG)을 NVorbis 로 한 번만 PCM16 으로 풉니다. 재생과 파형이 같은 결과를 나눠 씁니다. 디코더가 예상보다 많이/적게 내보내도 배열을 맞추고 길이를 실제 표본 수로 다시 잡습니다. |
 | **[OggAudioPlayer.cs](../../muse%20dash%20bms%20editer/Services/OggAudioPlayer.cs)** | `winmm.dll` 의 `waveOut` 을 `[LibraryImport]` 로 직접 불러 재생합니다. 재생 배속은 장치 샘플레이트를 바꿔 구현하므로 음정이 같이 내려갑니다. 재생 위치는 벽시계가 아니라 장치에 묻습니다(`GetPlayedSeconds`). |
-| **[OggPeakLoader.cs](../../muse%20dash%20bms%20editer/Services/OggPeakLoader.cs)** | 파형 막대(초당 80칸, 32~20000칸)와 온셋을 만듭니다. 온셋은 화면에 그리지 않고 ⚡ 오프셋 자동 맞춤(`TryDetectAudioOffsetMs`)에만 씁니다. "버킷 i = i × 길이 ÷ 개수 시점"이라는 규칙(`GetBucketRatio` / `GetBucketRange`)을 여기 한 곳에만 둡니다. |
+| **[OggPeakLoader.cs](../../muse%20dash%20bms%20editer/Services/OggPeakLoader.cs)** | 파형 막대(초당 80칸, 32~100,000칸)와 온셋을 만듭니다. 온셋은 화면에 그리지 않고 ⚡ 오프셋 자동 맞춤(`TryDetectAudioOffsetMs`)에만 씁니다. "버킷 i = i × 길이 ÷ 개수 시점"이라는 규칙(`GetBucketRatio` / `GetBucketRange`)을 여기 한 곳에만 둡니다. |
 | **[IbmscBpmDetector.cs](../../muse%20dash%20bms%20editer/Services/IbmscBpmDetector.cs)** | iBMSC MD 의 BPM 자동 측정을 숫자가 같게 옮긴 것입니다. 원본과 다른 점은 범위(60~199.99)와 0.01 간격뿐이고, cos 만 쓰는 점수 식의 한계(위상이 어긋나면 엉뚱한 BPM, 믿을 수 없는 소수점)도 그대로 둡니다. |
 | **[PreciseBpmDetector.cs](../../muse%20dash%20bms%20editer/Services/PreciseBpmDetector.cs)** | 소수점까지 재는 BPM 측정입니다. 다섯 대역 어택 곡선(`BuildOnsetCurve`, 5ms 칸)에 복소 지수 내적 크기 + 2·4배 박 가중을 씁니다. 어택 곡선은 `GridFitAdvisor` 와 같이 씁니다. |
 | **[GridFitAdvisor.cs](../../muse%20dash%20bms%20editer/Services/GridFitAdvisor.cs)** | "파형으로 맞춰도 되나 / 소리로 들어야 하나"를 고릅니다. 8마디 구간마다 어택이 16분 격자 한쪽으로 몰렸는지 보고, 25ms 이상 같은 쪽으로 밀린 구간이 3개 이상 이어지면 `Listen`. 숫자는 일부러 보여 주지 않습니다. |
-| **[KeySoundPlayer.cs](../../muse%20dash%20bms%20editer/Services/KeySoundPlayer.cs)** | 키음 믹서입니다. 미리 풀어 둔 PCM 을 자기 `waveOut` 스트림(44.1kHz 스테레오, 40ms 버퍼 3개)에 더해 내보내므로 화음과 긴 키음이 끊기지 않습니다. 디코딩에 실패한 파일만 Win32 `PlaySound` 로 물러납니다. |
+| **[KeySoundPlayer.cs](../../muse%20dash%20bms%20editer/Services/KeySoundPlayer.cs)** | 키음 믹서입니다. 미리 풀어 둔 PCM 을 자기 `waveOut` 스트림(44.1kHz 스테레오, 약 23ms 버퍼 3개, 최대 64보이스)에 더해 내보내므로 화음과 긴 키음이 끊기지 않습니다. 장치 오류 시 자동 재오픈하며, 디코딩에 실패한 파일만 Win32 `PlaySound` 로 물러납니다. |
 | **[WavDecoder.cs](../../muse%20dash%20bms%20editer/Services/WavDecoder.cs)** | 키음 WAV(8/16/24/32bit PCM, IEEE Float, `WAVE_FORMAT_EXTENSIBLE`)와 OGG 를 44.1kHz 16bit 스테레오로 풀고 선형 보간으로 리샘플링합니다. |
 
 ### 2-4. 홀드 짝 (`Services/Holds/`)
@@ -112,13 +114,13 @@
 | 파일명 | 쓰는 곳 |
 | :--- | :--- |
 | **[muse_dash.json](../../muse%20dash%20bms%20editer/Profiles/muse_dash.json)** | **에디터의 홀드 · 샌드백 짝 검사가 쓰는 유일한 프로파일**입니다(`MainWindowViewModel.Holds`). UID 표와 `Alternate` 규칙이 들어 있습니다. |
-| [startrail.json](../../muse%20dash%20bms%20editer/Profiles/startrail.json) · [gunvolt.json](../../muse%20dash%20bms%20editer/Profiles/gunvolt.json) · [stargazer.json](../../muse%20dash%20bms%20editer/Profiles/stargazer.json) · [deflate.json](../../muse%20dash%20bms%20editer/Profiles/deflate.json) · [unbeatable.json](../../muse%20dash%20bms%20editer/Profiles/unbeatable.json) | **건반 BMS 가져오기가 원본 차트를 읽을 때만** 씁니다. 롱노트 규칙과 화면 배치(`downmix`)가 들어 있고, 근거 코드가 `source` 에 적혀 있습니다. |
+| [startrail.json](../../muse%20dash%20bms%20editer/Profiles/startrail.json) · [gunvolt.json](../../muse%20dash%20bms%20editer/Profiles/gunvolt.json) · [stargazer.json](../../muse%20dash%20bms%20editer/Profiles/stargazer.json) · [deflate.json](../../muse%20dash%20bms%20editer/Profiles/deflate.json) · [unbeatable.json](../../muse%20dash%20bms%20editer/Profiles/unbeatable.json) | **건반 BMS 가져오기가 원본 차트를 읽을 때만** 씁니다. 롱노트 규칙과 근거 코드(`source`)가 들어 있으며, `startrail` · `gunvolt` · `stargazer` 에는 화면 배치(`downmix`)도 포함됩니다. |
 
 ---
 
 ## 🖥️ 4. ViewModels (MVVM 뷰모델)
 
-`MainWindowViewModel` 은 partial 파일 9개로 나뉘어 있습니다.
+`MainWindowViewModel` 은 partial 파일 10개로 나뉘어 있습니다.
 
 | 파일명 | 역할 및 특징 |
 | :--- | :--- |
@@ -129,13 +131,14 @@
 | **[MainWindowViewModel.Playback.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.Playback.cs)** | 재생 / 정지, 스크럽(드래그 중엔 커서만, 뗄 때 한 번 재생), 16ms 타이머로 장치 재생 위치를 읽어 커서를 옮기고, 그 구간의 노트 키음을 이진 탐색으로 찾아 울립니다. |
 | **[MainWindowViewModel.FileIO.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.FileIO.cs)** | BMS 열기 / 저장(원본 인코딩으로 못 담는 글자가 생기면 UTF-8 로 물러나고 알림), OGG 비동기 로드(실패해도 기존 음원 유지), 영상 연결, 새로 만들기입니다. 헤더를 화면으로 옮기는 `PullHeaderFromChart` 와 그 반대인 `CopyHeaderTo` 가 여기 있습니다. |
 | **[MainWindowViewModel.Downmix.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.Downmix.cs)** | 건반 BMS 가져오기입니다. 조건 블록 차트는 거절하고, 노트 정의를 만들고, 덮어쓰기 확인을 받은 뒤 문서를 통째로 갈아 끼우며(되돌리기 한 칸), 원본 폴더의 음원 · 영상을 같이 엽니다. 결과 창 문구(`DescribeDownmixReport`)도 만듭니다. |
-| **[MainWindowViewModel.Scenes.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.Scenes.cs)** | 구간 씬 바꾸기(`ConvertNotesToScene`)입니다. 마디 범위 안의 노트를 고른 씬의 같은 키음으로 바꾸고, 시작·복귀 씬 전환 노트를 넣습니다(새 `#WAV` 가 생겨도 되돌리기 한 칸). |
-| **[MainWindowViewModel.Speed.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.Speed.cs)** | 노트 속도 일괄 바꾸기(`ConvertNotesSpeed`)입니다. 고른 노트들을 대상 속도(1~3)의 키음으로 바꾸고 필요하면 `#WAV` 정의를 추가합니다(되돌리기 한 칸). |
+| **[MainWindowViewModel.AutoSave.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.AutoSave.cs)** | 주기적 자동 저장 타이머, 비상 저장(`EmergencySave`), 복구(`RecoverAutoSave`), 외부 수정 감지(`HasExternalChange` / `ShouldNotifyExternalChange`), 설정 적용/저장을 맡습니다. |
+| **[MainWindowViewModel.Scenes.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.Scenes.cs)** | 구간 씬 바꾸기(`ConvertSectionToScene`)입니다. 마디 범위 안의 노트를 고른 씬의 같은 키음으로 바꾸고, 시작·복귀 씬 전환 노트를 넣습니다(새 `#WAV` 가 생겨도 되돌리기 한 칸). |
+| **[MainWindowViewModel.Speed.cs](../../muse%20dash%20bms%20editer/ViewModels/MainWindowViewModel.Speed.cs)** | 노트 속도 일괄 바꾸기(`ConvertNotesToSpeed`)입니다. 고른 노트들을 대상 속도(1~3)의 키음으로 바꾸고 필요하면 `#WAV` 정의를 추가합니다(되돌리기 한 칸). |
 | **[ControlPanelViewModel.cs](../../muse%20dash%20bms%20editer/ViewModels/ControlPanelViewModel.cs)** | 🎛️ 컨트롤 패널입니다. `NoteStatsViewModel` 의 집계를 물려받아, 고른 레인 · 키음 줄의 노트를 격자에서 선택하고 그 자리로 스크롤하며, 미리듣기 · 번호 일괄 교체 · 확인 후 일괄 삭제를 합니다. |
 | **[NoteStatsViewModel.cs](../../muse%20dash%20bms%20editer/ViewModels/NoteStatsViewModel.cs)** | 📊 통계 창(보기 전용)입니다. 실제로 쓰인 레인 · 키음별 노트 수를 한 번의 루프로 셉니다. 집계 규칙은 여기 한 곳뿐입니다. |
 | **[NoteSearchViewModel.cs](../../muse%20dash%20bms%20editer/ViewModels/NoteSearchViewModel.cs)** | 🧰 검색 / 삭제 / 교체 창입니다. 마디 범위 · 키음 번호 범위 · 레인 · 선택 상태로 노트를 찾아 선택 · 삭제 · 번호 변경 · 마디 옮겨 복사를 합니다. |
 | **[WavPaletteViewModel.cs](../../muse%20dash%20bms%20editer/ViewModels/WavPaletteViewModel.cs)** | 🎨 키음 팔레트 창입니다. 메인 뷰모델의 `SelectedWavItem` 을 그대로 읽고 써서 사이드바 목록과 늘 같은 붓을 가리킵니다. 검색어 필터와 보기 크기 4단계가 있습니다. |
-| **[WavTraitFilter.cs](../../muse%20dash%20bms%20editer/ViewModels/WavTraitFilter.cs)** | 사이드바와 🎨 팔레트가 같이 쓰는 칩 필터(씬 · 종류 · 레인 · 속도)입니다. |
+| **[WavTraitFilter.cs](../../muse%20dash%20bms%20editer/ViewModels/WavTraitFilter.cs)** | 🎨 팔레트와 🎛️ 컨트롤 패널이 같이 쓰는 드롭다운 필터 4개(씬 · 종류 · 위치 · 스피드)입니다. |
 | **[OwnerObservingViewModel.cs](../../muse%20dash%20bms%20editer/ViewModels/OwnerObservingViewModel.cs)** | 보조 창 뷰모델의 바탕입니다. 메인 뷰모델 구독과 창을 닫을 때의 구독 해제를 짝으로 묶어 둡니다. |
 | **[BulkObservableCollection.cs](../../muse%20dash%20bms%20editer/ViewModels/BulkObservableCollection.cs)** | 항목을 통째로 갈아 끼우고 알림은 한 번(`Reset`)만 내는 컬렉션입니다. 차트를 열 때 키음 수만큼 재집계가 돌던 것을 막습니다. |
 
@@ -149,7 +152,8 @@
 | **[TimelineControlBase.cs](../../muse%20dash%20bms%20editer/Views/Controls/TimelineControlBase.cs)** | 격자와 파형이 같이 쓰는 바탕입니다. 줌 · BPM · 시간축 속성, 타임라인 길이 식(`ComputeTimelineLength` — 메인 창도 이것을 부릅니다), 격자선 열거(`EnumerateGridLines`), 음원 오프셋을 반영한 비율 변환(`AudioRatio`), 재생 커서와 BPM 변경 번쩍임을 그립니다. → [grid_specification.md](../specifications/grid_specification.md) |
 | **[NoteGridControl.cs](../../muse%20dash%20bms%20editer/Views/Controls/NoteGridControl.cs)** | 격자판과 노트를 그립니다. 홀드 · 샌드백 몸통(노랑 · 분홍)을 노트보다 먼저 그리고, 짝이 어긋난 노트에 주황 점선을 두릅니다. 좌클릭 배치(격자 스냅 on/off), 우클릭 삭제, 드래그 선택(Ctrl/Shift 로 더하기, 사각형 시간 구간만 이진 탐색)을 받습니다. 격자·노트는 **보이는 구간만** 그리고(배경 사각형은 클릭을 받아야 해서 자르지 않음), 렌더·클릭마다 `CaptureAxis()`/`CaptureNoteStyle()` 로 속성을 한 번만 읽습니다. 노트 그림 오른쪽 위에 등장 방향 삼각형을 얹고(속도 동그라미는 방향을 흐려서 뺐습니다), `ShowNoteSpeed` 가 켜져 있으면 왼쪽 위에 속도 숫자 배지를 따로 그립니다(기본 꺼짐, `settings.json` 에 저장). |
 | **[OggWaveformControl.cs](../../muse%20dash%20bms%20editer/Views/Controls/OggWaveformControl.cs)** | 음원 파형 막대와 마디 번호 · 초 라벨(`#003 (5.7600s)`)을 그립니다. 온셋 세로선은 판단을 흐려 지웠습니다(다시 넣지 않음). 좌클릭 · 드래그로 재생 위치를 옮깁니다. |
-| **[VideoPreviewControl.cs](../../muse%20dash%20bms%20editer/Views/Controls/VideoPreviewControl.cs)** | WebView2 창을 격자 옆에 붙여 영상을 띄우고, 가상 호스트로 로컬 파일을 열며, 재생 위치를 0.2초마다 맞춥니다. → [video_ogg_principles.md](video_ogg_principles.md) |
+| **[VideoPreviewControl.cs](../../muse%20dash%20bms%20editer/Views/Controls/VideoPreviewControl.cs)** | WebView2 창을 격자 옆에 붙여 영상을 띄우고(비디오 로드 시 지연 초기화), 가상 호스트로 로컬 파일을 열며, 재생 위치를 0.2초마다 맞춥니다. → [video_ogg_principles.md](video_ogg_principles.md) |
+| **[NumberBox.cs](../../muse%20dash%20bms%20editer/Views/Controls/NumberBox.cs)** | Avalonia 12 `NumericUpDown` 의 UIA `decimal` 예외를 우회하기 위한 숫자 입력 컨트롤입니다. |
 | **[ConfirmWindow.axaml / .cs](../../muse%20dash%20bms%20editer/Views/ConfirmWindow.axaml)** | 확인/취소 · 알림 전용 · 저장/저장 안 함/취소 3지선다를 모두 맡는 대화상자입니다. 창을 그냥 닫으면 언제나 "취소"입니다. |
 | **[ControlPanelWindow.axaml / .cs](../../muse%20dash%20bms%20editer/Views/ControlPanelWindow.axaml)** | 🎛️ 컨트롤 패널 창(모드리스)입니다. 목록 항목에는 명령을 걸지 않고, 누르는 것은 전부 목록 밖 버튼입니다. |
 | **[NoteSearchWindow.axaml / .cs](../../muse%20dash%20bms%20editer/Views/NoteSearchWindow.axaml)** | 🧰 검색 / 삭제 / 교체 창(모드리스)입니다. Esc 로 닫힙니다. |
@@ -173,9 +177,9 @@
 
 | 파일명 | 역할 |
 | :--- | :--- |
-| **[Program.cs](../../muse%20dash%20bms%20editer/Program.cs)** | Avalonia 앱을 띄웁니다. 처리되지 않은 예외는 `%LocalAppData%\muse dash bms editer\logs\` 에 남깁니다(`Services/CrashLog.cs`, 최근 20개만 남기고 오래된 `crash-*.log` 는 지웁니다). **단일 인스턴스**: 이름 있는 뮤텍스(`Local\MuseDashBmsEditer_SingleInstance`)로 이미 떠 있는 창을 찾고, 있으면 명령줄 차트 경로를 이름 있는 파이프(`MuseDashBmsEditer_IpcPipe`)로 넘기고 종료합니다. 받은 쪽은 `App.RaiseExternalOpenRequested` 로 차트를 엽니다. |
+| **[Program.cs](../../muse%20dash%20bms%20editer/Program.cs)** | Avalonia 앱을 띄웁니다. 처리되지 않은 예외는 `%LocalAppData%\muse dash bms editer\logs\` 에 남깁니다(`Services/CrashLog.cs`, 최근 20개만 남기고 오래된 `crash-*.log` 는 지웁니다). **단일 인스턴스**: 이름 있는 뮤텍스(`Local\MuseDashBmsEditer_SingleInstance`)로 이미 떠 있는 창을 찾고, 있으면 명령줄 차트 경로를 세션별 이름 있는 파이프(`MuseDashBmsEditer_IpcPipe_{SessionId}`)로 넘기고 종료합니다. 받은 쪽은 `App.RaiseExternalOpenRequested` 로 차트를 엽니다. |
 | **[App.axaml / .cs](../../muse%20dash%20bms%20editer/App.axaml)** | Fluent 테마를 걸고 메인 창을 만듭니다. |
-| **[win-x64.pubxml](../../muse%20dash%20bms%20editer/Properties/PublishProfiles/win-x64.pubxml)** | 네이티브 라이브러리까지 exe 하나로 묶는 배포 설정입니다(`-p:PublishProfile=win-x64`). |
+| **[personal.pubxml](../../muse%20dash%20bms%20editer/Properties/PublishProfiles/personal.pubxml) · [release.pubxml](../../muse%20dash%20bms%20editer/Properties/PublishProfiles/release.pubxml)** | 1번 개인용(`muse dash 1 bms editer 1.exe`, 에셋 내장) · 2번 릴리즈용(`muse dash 1 bms editer 2.exe`, 에셋 분리) 단일 exe 배포 프로필입니다. (`win-x64.pubxml` 은 구버전 범용 프로필) |
 
 ---
 
@@ -194,7 +198,7 @@ xUnit + Avalonia Headless 입니다. 헤드리스 창은 디스패처 스레드 
 | 노트 그림 · 씬 · 속도 · 필터 | `NoteIconTests` · `NoteIconImporterTests` · `NoteSpeedTests` · `SceneConvertTests` · `WavSearchTests` |
 | 다운믹스 | `DownmixTests` · `DownmixRealChartTests` |
 | 창 · 보조 창 | `WindowSmokeTests` · `UndoUiSmokeTests` · `ControlPanelTests` · `LoadPerformanceTests` |
-| 오디오 · 기타 | `KeySoundPlayerTests` · `PlaybackSpeedAndKeySoundTests` · `FolderMediaTests` |
+| 오디오 · 내성 · 기타 | `KeySoundPlayerTests` · `PlaybackSpeedAndKeySoundTests` · `FolderMediaTests` · `AuditResilienceTests` |
 
 > `DownmixRealChartTests` 와 `DownmixTests` · `HoldPairingTests` 의 "실제 차트" 테스트는 이 개발 PC 의 게임 폴더(`H:\…`)를 읽습니다.
 > 폴더가 없는 PC 에서는 한 줄만 남기고 **통과로** 끝납니다(건너뜀으로 세지 않습니다).

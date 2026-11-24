@@ -28,17 +28,21 @@ public sealed class ChartTimeline
     private readonly Dictionary<int, List<BpmChange>> _changesByMeasure;
 
     // 마디 경계의 누적 시각과 그 순간의 BPM. 필요한 만큼만 늘려 가며 채운다.
+    // UI 렌더와 백그라운드(오디오/분석)에서 동시에 호출될 수 있어 잠금으로 보호한다.
+    private readonly object _gate = new();
     private readonly List<double> _measureStartSeconds = new() { 0.0 };
     private readonly List<double> _bpmAtMeasureStart;
 
     public ChartTimeline(double baseBpm, IReadOnlyDictionary<int, double> measureLengths, IEnumerable<BpmChange> bpmChanges)
     {
-        _baseBpm = baseBpm > 0 ? baseBpm : 120.0;
-        _measureLengths = measureLengths.ToDictionary(kv => kv.Key, kv => kv.Value);
+        _baseBpm = double.IsFinite(baseBpm) && baseBpm > 0 ? baseBpm : 120.0;
+        _measureLengths = measureLengths
+            .Where(kv => double.IsFinite(kv.Value) && kv.Value > 0)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
         _bpmAtMeasureStart = new List<double> { _baseBpm };
 
         _changesByMeasure = bpmChanges
-            .Where(c => c.Bpm > 0)
+            .Where(c => double.IsFinite(c.Bpm) && c.Bpm > 0 && double.IsFinite(c.Position))
             .GroupBy(c => c.Measure)
             .ToDictionary(g => g.Key, g => g.OrderBy(c => c.Position).ToList());
 
@@ -66,16 +70,21 @@ public sealed class ChartTimeline
     // 마디 위치(마디 + 마디 안 0~1)를 곡 시작부터의 초로 바꾼다.
     public double SecondsAt(double measurePosition)
     {
-        if (measurePosition <= 0)
+        if (!double.IsFinite(measurePosition) || measurePosition <= 0)
             return 0;
 
-        var measure = (int)Math.Floor(measurePosition);
-        var position = measurePosition - measure;
+        var floored = Math.Floor(measurePosition);
+        var measure = floored >= MaxMeasure ? MaxMeasure : (int)floored;
+        var position = floored >= MaxMeasure ? 0.0 : measurePosition - measure;
 
-        EnsureBoundary(measure);
-
-        var seconds = _measureStartSeconds[measure];
-        var bpm = _bpmAtMeasureStart[measure];
+        double seconds;
+        double bpm;
+        lock (_gate)
+        {
+            EnsureBoundaryLocked(measure);
+            seconds = _measureStartSeconds[measure];
+            bpm = _bpmAtMeasureStart[measure];
+        }
         var cursor = 0.0;
 
         if (_changesByMeasure.TryGetValue(measure, out var changes))
@@ -102,13 +111,18 @@ public sealed class ChartTimeline
     // 곡 시작부터의 초를 마디 위치로 되돌린다. 클릭한 자리를 마디로 옮길 때 쓴다.
     public double MeasurePositionAt(double seconds)
     {
-        if (seconds <= 0)
+        if (!double.IsFinite(seconds) || seconds <= 0)
             return 0;
 
-        var measure = FindMeasureContaining(seconds);
-
-        var remaining = seconds - _measureStartSeconds[measure];
-        var bpm = _bpmAtMeasureStart[measure];
+        int measure;
+        double remaining;
+        double bpm;
+        lock (_gate)
+        {
+            measure = FindMeasureContainingLocked(seconds);
+            remaining = seconds - _measureStartSeconds[measure];
+            bpm = _bpmAtMeasureStart[measure];
+        }
         var cursor = 0.0;
 
         if (_changesByMeasure.TryGetValue(measure, out var changes))
@@ -142,14 +156,14 @@ public sealed class ChartTimeline
     //
     // 예전에는 0마디부터 한 칸씩 훑었다. 격자를 화면에 보이는 구간부터 그리려면
     // 렌더마다 이 값을 물어야 해서, 긴 곡에서는 여기가 그대로 병목이 된다.
-    private int FindMeasureContaining(double seconds)
+    private int FindMeasureContainingLocked(double seconds)
     {
         // seconds 를 넘는 경계가 나올 때까지 두 배씩 늘린다.
         var known = _measureStartSeconds.Count - 1;
         while (known < MaxMeasure && _measureStartSeconds[known] <= seconds)
         {
             known = Math.Min(MaxMeasure, Math.Max(16, known * 2));
-            EnsureBoundary(known);
+            EnsureBoundaryLocked(known);
         }
 
         var low = 1;
@@ -177,8 +191,8 @@ public sealed class ChartTimeline
         return beats * 60.0 / bpm;
     }
 
-    // 아직 안 구한 마디 경계까지 이어서 채운다.
-    private void EnsureBoundary(int measure)
+    // 아직 안 구한 마디 경계까지 이어서 채운다. (호출자가 _gate 를 잡고 있어야 한다)
+    private void EnsureBoundaryLocked(int measure)
     {
         while (_measureStartSeconds.Count <= measure)
         {

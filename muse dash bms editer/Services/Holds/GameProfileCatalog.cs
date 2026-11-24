@@ -122,35 +122,44 @@ public sealed class GameProfileCatalog
         if (string.IsNullOrWhiteSpace(profile.DisplayName))
             profile.DisplayName = profile.Id;
 
-        if (profile.HoldRules.Count == 0)
+        if (profile.HoldRules is null || profile.HoldRules.Count == 0)
             throw new FormatException($"{profile.Id}: holdRules 가 비어 있습니다.");
+
+        profile.PathHints ??= new List<string>();
 
         foreach (var rule in profile.HoldRules)
         {
+            if (rule is null)
+                throw new FormatException($"{profile.Id}: holdRules 에 빈 항목이 있습니다.");
+
+            if (rule.Role is null)
+                throw new FormatException($"{profile.Id}/{rule.Kind}: role 이 없습니다.");
+
             var role = rule.Role;
             var where = $"{profile.Id}/{rule.Kind}";
 
             switch (role.Type)
             {
-                case HoldRoleSource.KeyValue when role.HeadKeys.Count == 0 || role.TailKeys.Count == 0:
+                case HoldRoleSource.KeyValue when role.HeadKeys is null || role.HeadKeys.Count == 0 || role.TailKeys is null || role.TailKeys.Count == 0:
                     throw new FormatException($"{where}: KeyValue 는 headKeys 와 tailKeys 가 모두 있어야 합니다.");
-                case HoldRoleSource.FileNameKeyword when role.HeadKeywords.Count == 0 || role.TailKeywords.Count == 0:
+                case HoldRoleSource.FileNameKeyword when role.HeadKeywords is null || role.HeadKeywords.Count == 0 || role.TailKeywords is null || role.TailKeywords.Count == 0:
                     throw new FormatException($"{where}: FileNameKeyword 는 headKeywords 와 tailKeywords 가 모두 있어야 합니다.");
-                case HoldRoleSource.FileNameUid when profile.UidTable is null:
+                case HoldRoleSource.FileNameUid when profile.UidTable is null || string.IsNullOrEmpty(profile.UidTable.Pattern):
                     throw new FormatException($"{where}: FileNameUid 는 프로파일에 uidTable 이 있어야 합니다.");
                 case HoldRoleSource.FileNameUid:
                     try
                     {
                         _ = new System.Text.RegularExpressions.Regex(
                             profile.UidTable!.Pattern,
-                            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+                            TimeSpan.FromSeconds(1));
                     }
                     catch (ArgumentException ex)
                     {
                         throw new FormatException($"{where}: uidTable.pattern 정규식이 올바르지 않습니다: {ex.Message}", ex);
                     }
                     break;
-                case HoldRoleSource.FileNameBase when role.BaseNames.Count == 0:
+                case HoldRoleSource.FileNameBase when role.BaseNames is null || role.BaseNames.Count == 0:
                     throw new FormatException($"{where}: FileNameBase 는 baseNames 가 있어야 합니다.");
             }
 

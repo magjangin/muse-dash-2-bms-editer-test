@@ -34,13 +34,18 @@ internal static class NoteIconImage
 
         var (data, width, height) = cleaned.Value;
         var output = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
-        using (var frame = output.Lock())
+        try
         {
+            using var frame = output.Lock();
             for (var y = 0; y < height; y++)
                 Marshal.Copy(data, y * width * 4, frame.Address + (y * frame.RowBytes), width * 4);
+            return output;
         }
-
-        return output;
+        catch
+        {
+            output.Dispose();
+            throw;
+        }
     }
 }
 
@@ -63,6 +68,10 @@ public static class NoteIconPixels
     // bodyOnly 이면 줄처럼 가는 부분을 모두 지우고 굵은 몸통만 남긴다(해머).
     public static (byte[] Pixels, int Width, int Height)? Clean(byte[] bgra, int width, int height, int stride, bool bodyOnly = false)
     {
+        if (bgra is null || width <= 0 || height <= 0 || stride < width * 4
+            || bgra.Length < ((long)(height - 1) * stride) + (width * 4))
+            return null;
+
         var alpha = new byte[width * height];
         var colors = new byte[width * height * 4];
 

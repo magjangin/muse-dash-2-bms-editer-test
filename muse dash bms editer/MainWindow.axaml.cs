@@ -39,8 +39,18 @@ public partial class MainWindow : Window
                     toolWindow.Close();
 
                 SaveSettingsIfEnabled();
+
+                if (_boundVm is not null)
+                {
+                    _boundVm.PropertyChanged -= OnViewModelPropertyChanged;
+                    _boundVm.ScrollToRatioRequested -= ScrollEditorToRatio;
+                    _boundVm.UserMessageRequested -= OnUserMessageRequested;
+                    _boundVm = null;
+                }
+
                 (DataContext as IDisposable)?.Dispose();
             };
+            EditorSurface.PointerCaptureLost += OnEditorSurfacePointerCaptureLost;
             AddHandler(PointerPressedEvent, OnWindowPointerPressedTunnel, RoutingStrategies.Tunnel, handledEventsToo: true);
             AddHandler(KeyDownEvent, OnWindowKeyDownTunnel, RoutingStrategies.Tunnel);
 
@@ -59,7 +69,10 @@ public partial class MainWindow : Window
                 var assemblyName = typeof(MainWindow).Assembly.GetName().Name;
                 var iconUri = new Uri($"avares://{assemblyName}/Assets/{iconFile}");
                 if (Avalonia.Platform.AssetLoader.Exists(iconUri))
-                    Icon = new WindowIcon(Avalonia.Platform.AssetLoader.Open(iconUri));
+                {
+                    using var iconStream = Avalonia.Platform.AssetLoader.Open(iconUri);
+                    Icon = new WindowIcon(iconStream);
+                }
             }
             catch
             {
@@ -102,6 +115,7 @@ public partial class MainWindow : Window
         // Closing 은 await 할 수 없으므로, 일단 닫기를 취소하고 물어본 뒤
         // 사용자가 정말 닫겠다고 하면 그때 다시 Close() 한다.
         private bool _isClosingConfirmed;
+        private bool _isClosingDialogOpen;
 
         private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
         {
@@ -112,38 +126,49 @@ public partial class MainWindow : Window
 
             e.Cancel = true;
 
-            var name = vm.CurrentFilePath is { } path ? Path.GetFileName(path) : "제목 없음";
-            var choice = await ConfirmWindow.ShowThreeWayAsync(
-                this,
-                $"'{name}' 의 바뀐 내용을 저장하지 않았습니다.\n\n저장하고 닫을까요?",
-                confirmText: "저장하고 닫기",
-                alternateText: "저장 안 함",
-                title: "종료");
+            if (_isClosingDialogOpen)
+                return;
 
-            switch (choice)
+            _isClosingDialogOpen = true;
+            try
             {
-                case ConfirmChoice.Cancel:
-                    return;
+                var name = vm.CurrentFilePath is { } path ? Path.GetFileName(path) : "제목 없음";
+                var choice = await ConfirmWindow.ShowThreeWayAsync(
+                    this,
+                    $"'{name}' 의 바뀐 내용을 저장하지 않았습니다.\n\n저장하고 닫을까요?",
+                    confirmText: "저장하고 닫기",
+                    alternateText: "저장 안 함",
+                    title: "종료");
 
-                case ConfirmChoice.Confirm:
-                    var savePath = vm.CurrentFilePath ?? await PickSavePathAsync(vm);
-                    if (savePath is null || !await EnsureMayOverwriteAsync(vm, savePath))
+                switch (choice)
+                {
+                    case ConfirmChoice.Cancel:
                         return;
 
-                    if (!vm.SaveBms(savePath))
-                    {
-                        await ConfirmWindow.ShowMessageAsync(
-                            this, $"저장하지 못했습니다. 창을 닫지 않았습니다.\n\n{vm.LastErrorMessage}", "저장 실패");
-                        return;
-                    }
-                    break;
+                    case ConfirmChoice.Confirm:
+                        var savePath = vm.CurrentFilePath ?? await PickSavePathAsync(vm);
+                        if (savePath is null || !await EnsureMayOverwriteAsync(vm, savePath))
+                            return;
+
+                        if (!vm.SaveBms(savePath))
+                        {
+                            await ConfirmWindow.ShowMessageAsync(
+                                this, $"저장하지 못했습니다. 창을 닫지 않았습니다.\n\n{vm.LastErrorMessage}", "저장 실패");
+                            return;
+                        }
+                        break;
+                }
+
+                // "저장 안 함"을 고른 작업을 다음 실행에서 복구하라고 묻지 않는다.
+                vm.DiscardAutoSave();
+
+                _isClosingConfirmed = true;
+                Close();
             }
-
-            // "저장 안 함"을 고른 작업을 다음 실행에서 복구하라고 묻지 않는다.
-            vm.DiscardAutoSave();
-
-            _isClosingConfirmed = true;
-            Close();
+            finally
+            {
+                _isClosingDialogOpen = false;
+            }
         }
 
         private void UpdateWindowTitle()

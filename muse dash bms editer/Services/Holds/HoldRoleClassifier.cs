@@ -142,7 +142,7 @@ internal static class UidTypeResolver
         var name = HoldRoleClassifier.FileNameWithoutExtension(wavText);
         var lower = name.ToLowerInvariant();
 
-        var regex = Patterns.GetOrAdd(table.Pattern, p => new Regex(p, RegexOptions.CultureInvariant));
+        var regex = Patterns.GetOrAdd(table.Pattern, p => new Regex(p, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)));
         var match = regex.Match(name);
         var uid = match.Success ? match.Groups[match.Groups.Count > 1 ? 1 : 0].Value : null;
 
@@ -184,7 +184,7 @@ internal static class UidTypeResolver
 
         foreach (var keyword in table.BlockingKeywords)
         {
-            if (keyword.Length > 0 && lower.Contains(keyword, StringComparison.Ordinal))
+            if (keyword.Length > 0 && lower.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 return table.BlockingType;
         }
 
@@ -193,7 +193,7 @@ internal static class UidTypeResolver
 
         foreach (var fallback in table.NameFallbacks)
         {
-            var hit = fallback.Keywords.Any(k => k.Length > 0 && lower.Contains(k, StringComparison.Ordinal))
+            var hit = fallback.Keywords.Any(k => k.Length > 0 && lower.Contains(k, StringComparison.OrdinalIgnoreCase))
                 || (fallback.UidPrefix.Length > 0 && uid is not null
                     && uid.StartsWith(fallback.UidPrefix, StringComparison.Ordinal))
                 || (fallback.UidTypeCode.Length > 0 && uid is not null

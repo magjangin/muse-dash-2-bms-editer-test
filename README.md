@@ -9,7 +9,7 @@
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
 ![Avalonia 12](https://img.shields.io/badge/Avalonia_UI-12-8B44AC)
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D4)
-![version](https://img.shields.io/badge/version-0.1.5-lightgrey)
+![version](https://img.shields.io/badge/version-0.1.6-lightgrey)
 ![status](https://img.shields.io/badge/status-testing-orange)
 
 > [!NOTE]
@@ -166,7 +166,7 @@
 # 실행
 dotnet run --project "muse dash bms editer/muse dash bms editer.csproj"
 
-# 테스트 (200개 넘는 단위·통합 테스트, 화면 없이 창까지 띄워 확인)
+# 테스트 (470개 넘는 단위·통합 테스트, 화면 없이 창까지 띄워 확인)
 dotnet test "muse dash bms editer.slnx"
 
 # [추천] 한 번에 빌드 (1번 개인용 + 2번 릴리즈용 둘 다 빌드)

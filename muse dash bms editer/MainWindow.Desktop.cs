@@ -173,12 +173,21 @@ public partial class MainWindow
         if (settings.WindowHeight is > 200 and { } height)
             Height = height;
 
-        // 모니터를 뺐으면 저장해 둔 자리가 화면 밖일 수 있다. 그때는 운영체제에 맡긴다.
-        if (settings.WindowX is { } x && settings.WindowY is { } y
-            && Screens.ScreenFromPoint(new PixelPoint(x, y)) is not null)
+        // 모니터를 뺐거나 Windows DWM 보이지 않는 테두리(-7px) 때문에 좌상단 1점만 보면 복원이 실패한다.
+        // 타이틀바 영역과 겹치는 모니터를 찾아 WorkingArea 안으로 안전하게 당겨 복원한다.
+        if (settings.WindowX is { } x && settings.WindowY is { } y)
         {
-            WindowStartupLocation = WindowStartupLocation.Manual;
-            Position = new PixelPoint(x, y);
+            var probeWidth = (int)Math.Max(200, Width);
+            var screen = Screens.ScreenFromBounds(new PixelRect(x, y, probeWidth, 40))
+                ?? Screens.ScreenFromPoint(new PixelPoint(x + 20, y + 20));
+            if (screen is not null)
+            {
+                var work = screen.WorkingArea;
+                var clampedX = Math.Clamp(x, work.X - 16, Math.Max(work.X, work.Right - 120));
+                var clampedY = Math.Clamp(y, work.Y, Math.Max(work.Y, work.Bottom - 80));
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Position = new PixelPoint(clampedX, clampedY);
+            }
         }
 
         if (settings.IsWindowMaximized)
@@ -249,10 +258,13 @@ public partial class MainWindow
         e.Handled = true;
     }
 
-    // .bms → 열기 · 폴더 → 폴더 열기 · .ogg → 음원 · .wav → 키음 추가.
+    private bool _isHandlingDrop;
+
+    // .bms → 열기 · 폴더 → 폴더 열기 · .ogg → 음원 · .mp4/.webm 등 → 영상 · .wav → 키음 추가.
+    // 여러 종류를 한꺼번에 끌어다 놓아도(예: .bms + .ogg + .mp4) 빠짐없이 차례로 연다.
     private async void OnWindowDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel vm)
+        if (_isHandlingDrop || DataContext is not MainWindowViewModel vm)
             return;
 
         var paths = e.DataTransfer.TryGetFiles()?
@@ -265,39 +277,47 @@ public partial class MainWindow
             return;
 
         e.Handled = true;
+        _isHandlingDrop = true;
+        try
+        {
+            var folder = paths.FirstOrDefault(Directory.Exists);
+            if (folder is not null)
+            {
+                if (await vm.ConfirmDiscardIfNeededAsync("현재 작업 중인 내용이 모두 사라집니다.\n폴더를 열까요?"))
+                    await LoadFolderMediaAsync(vm, folder);
 
-        var first = paths[0];
-        if (Directory.Exists(first))
-        {
-            if (await vm.ConfirmDiscardIfNeededAsync("현재 작업 중인 내용이 모두 사라집니다.\n폴더를 열까요?"))
-                await LoadFolderMediaAsync(vm, first);
+                return;
+            }
 
-            return;
-        }
-
-        var extension = Path.GetExtension(first);
-        if (FolderMedia.ChartExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-        {
-            await OpenChartPathAsync(vm, first);
-        }
-        else if (string.Equals(extension, ".ogg", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!await vm.LoadOggAsync(first))
-                await ConfirmWindow.ShowMessageAsync(this, $"OGG를 불러오지 못했습니다.\n\n{vm.LastErrorMessage}", "OGG 로드 실패");
-        }
-        else if (FolderMedia.VideoExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-        {
-            vm.LoadVideo(first);
-        }
-        else if (string.Equals(extension, ".wav", StringComparison.OrdinalIgnoreCase))
-        {
+            var chartPath = paths.FirstOrDefault(p => FolderMedia.ChartExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase));
+            var oggPath = paths.FirstOrDefault(p => string.Equals(Path.GetExtension(p), ".ogg", StringComparison.OrdinalIgnoreCase));
+            var videoPath = paths.FirstOrDefault(p => FolderMedia.VideoExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase));
             var wavPaths = paths
                 .Where(p => string.Equals(Path.GetExtension(p), ".wav", StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
-            vm.AddWavs(wavPaths);
-            if (vm.LastErrorMessage is not null)
-                await ConfirmWindow.ShowMessageAsync(this, $"키음을 추가하지 못했습니다.\n\n{vm.LastErrorMessage}", "키음 추가 실패");
+            if (chartPath is not null)
+                await OpenChartPathAsync(vm, chartPath);
+
+            if (oggPath is not null)
+            {
+                if (!await vm.LoadOggAsync(oggPath))
+                    await ConfirmWindow.ShowMessageAsync(this, $"OGG를 불러오지 못했습니다.\n\n{vm.LastErrorMessage}", "OGG 로드 실패");
+            }
+
+            if (videoPath is not null)
+                vm.LoadVideo(videoPath);
+
+            if (wavPaths.Length > 0)
+            {
+                vm.AddWavs(wavPaths);
+                if (vm.LastErrorMessage is not null)
+                    await ConfirmWindow.ShowMessageAsync(this, $"키음을 추가하지 못했습니다.\n\n{vm.LastErrorMessage}", "키음 추가 실패");
+            }
+        }
+        finally
+        {
+            _isHandlingDrop = false;
         }
     }
 

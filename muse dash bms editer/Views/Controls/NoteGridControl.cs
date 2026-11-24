@@ -507,10 +507,11 @@ public sealed class NoteGridControl : TimelineControlBase
         context.FillRectangle(GridBackgroundBrush, new Rect(0, 0, totalWidth, totalHeight));
 
 
+        var isHorizontal = IsHorizontalView;
         var thicknessOffset = 0.0;
         for (var i = 0; i <= lanes.Count; i++)
         {
-            if (IsHorizontalView)
+            if (isHorizontal)
             {
                 context.DrawLine(LanePen, new Point(0, thicknessOffset), new Point(totalWidth, thicknessOffset));
             }
@@ -532,7 +533,7 @@ public sealed class NoteGridControl : TimelineControlBase
                 _ => SubBeatPen,
             };
 
-            if (IsHorizontalView)
+            if (isHorizontal)
             {
                 context.DrawLine(pen, new Point(line.Position, 0), new Point(line.Position, totalHeight));
             }
@@ -548,7 +549,7 @@ public sealed class NoteGridControl : TimelineControlBase
             var lane = lanes[i];
             var formattedText = GetOrCreateLaneHeaderFormattedText(lane.Header);
 
-            if (IsHorizontalView)
+            if (isHorizontal)
             {
                 var laneY = (i * laneThickness) + (laneThickness - formattedText.Height) / 2;
                 context.DrawText(formattedText, new Point(8, laneY));
@@ -560,10 +561,13 @@ public sealed class NoteGridControl : TimelineControlBase
             }
         }
 
+        // 프레임당 한 번만 시간축 속성을 캡처해 홀드·노트·경고 그리기가 공유한다.
+        var axis = CaptureAxis(timelineLength);
+
         // 홀드 몸통은 노트보다 먼저 그린다. 머리·꼬리 노트가 몸통 위에 올라와야 한다.
-        DrawHoldBodies(context, lanes, laneThickness, timelineLength, range);
-        DrawNotes(context, lanes, laneThickness, timelineLength, range);
-        DrawHoldProblems(context, lanes, laneThickness, timelineLength, range);
+        DrawHoldBodies(context, lanes, laneThickness, axis, range);
+        DrawNotes(context, lanes, laneThickness, axis, range);
+        DrawHoldProblems(context, lanes, laneThickness, axis, range);
     }
 
     // 자주 바뀌는 그림(드래그 사각형·번쩍임·재생 커서). 격자 위의 겹 컨트롤이 부른다.
@@ -590,7 +594,7 @@ public sealed class NoteGridControl : TimelineControlBase
     }
 
     private void DrawNotes(
-        DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, double timelineLength, TimelineRange range)
+        DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, TimelineAxis axis, TimelineRange range)
     {
         var notes = Notes;
         if (notes is null || notes.Count == 0)
@@ -606,7 +610,6 @@ public sealed class NoteGridControl : TimelineControlBase
         var selectedSet = _cachedSelectedSet;
         var sortedNotes = GetSortedNotes(notes);
         var laneMap = GetLaneIndexMap(lanes);
-        var axis = CaptureAxis(timelineLength);
         var style = CaptureNoteStyle(laneThickness);
 
         // 그림·이름표는 레인 폭 안에 들어가므로 이만큼만 여유를 두면 잘리지 않는다.
@@ -766,13 +769,12 @@ public sealed class NoteGridControl : TimelineControlBase
     //
     // 양 끝 좌표를 각각 TimelineAxis.PositionOf 로 구한다. 노트와 같은 시간축을 써야 몸통 끝이 끝 노트와 만난다.
     // 마디 단위로 선형 보간해 늘리면 BPM 변화나 변박 구간을 지나는 홀드의 끝이 끝 노트와 어긋난다.
-    private void DrawHoldBodies(DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, double timelineLength, TimelineRange range)
+    private void DrawHoldBodies(DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, TimelineAxis axis, TimelineRange range)
     {
         var links = HoldLinks;
         if (links is null || links.Count == 0)
             return;
 
-        var axis = CaptureAxis(timelineLength);
         var laneMap = GetLaneIndexMap(lanes);
 
         for (var i = 0; i < links.Count; i++)
@@ -806,13 +808,12 @@ public sealed class NoteGridControl : TimelineControlBase
         }
     }
 
-    private void DrawHoldProblems(DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, double timelineLength, TimelineRange range)
+    private void DrawHoldProblems(DrawingContext context, IReadOnlyList<LaneDefinition> lanes, double laneThickness, TimelineAxis axis, TimelineRange range)
     {
         var problems = HoldProblemNotes;
         if (problems is null || problems.Count == 0)
             return;
 
-        var axis = CaptureAxis(timelineLength);
         var laneMap = GetLaneIndexMap(lanes);
 
         for (var i = 0; i < problems.Count; i++)
@@ -926,11 +927,11 @@ public sealed class NoteGridControl : TimelineControlBase
 
         var laneThickness = LaneWidth * HorizontalZoom;
         var timelineLength = GetTimelineHeight();
-        if (timelineLength <= 0)
+        if (timelineLength <= 0 || MeasureCount <= 0)
             return;
 
         var thicknessPos = IsHorizontalView ? point.Position.Y : point.Position.X;
-        var clickedLaneIndex = (int)(thicknessPos / laneThickness);
+        var clickedLaneIndex = (int)Math.Floor(thicknessPos / laneThickness);
         if (clickedLaneIndex < 0 || clickedLaneIndex >= lanes.Count)
             return;
 
@@ -990,6 +991,17 @@ public sealed class NoteGridControl : TimelineControlBase
                 InvalidateVisual();
                 e.Handled = true;
             }
+        }
+    }
+
+    protected override void OnPointerCaptureLost(Avalonia.Input.PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (_dragStartPoint is not null)
+        {
+            _dragStartPoint = null;
+            _dragCurrentPoint = null;
+            InvalidateOverlay();
         }
     }
 

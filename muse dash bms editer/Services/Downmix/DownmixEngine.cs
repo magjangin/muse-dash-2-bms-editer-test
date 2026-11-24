@@ -144,7 +144,7 @@ public static class DownmixEngine
 
         string LaneFor(string channel)
         {
-            var assignment = laneOf[channel];
+            var assignment = laneOf.TryGetValue(channel, out var found) ? found : (LaneAssignment)(-1);
             if (assignment == LaneAssignment.Ground)
                 return GroundLane;
             if (assignment == LaneAssignment.Air)
