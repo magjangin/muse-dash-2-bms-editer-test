@@ -83,6 +83,16 @@ muse dash bms editer/
    - 파이프 이름에 **로그인 세션 번호**를 붙입니다. 뮤텍스는 `Local\` 이라 세션마다 따로인데 파이프는 PC 전체 이름이라, 다른 계정이 먼저 띄우면 이쪽 서버가 만들어지지 않고 예외 루프가 CPU 한 코어를 먹었습니다. 오류 시에는 500ms 쉬었다 다시 엽니다.
    - 창이 구독하기 전에 넘어온 경로는 `App.TakePendingExternalOpen()` 에 맡겨 두고, 시작(복구 질문·실행 인자 열기)이 끝나기 전이나 다른 외부 열기 처리 중에 온 경로는 마지막 하나만 미뤄 두었다가 엽니다. 예전에는 버려지거나 복구 질문과 저장 확인 창이 겹쳤습니다.
 
+9. **업데이트 내성 — 끊긴 파일 연결 자동 복구** ([`FileAssociation.RepairIfStale`](muse%20dash%20bms%20editer/Services/FileAssociation.cs)):
+   - 탐색기 연결은 등록 당시 exe 경로를 그대로 적습니다. 새 버전을 다른 폴더에 풀거나 exe 이름이 바뀌면(v0.1.6 의 `muse dash 1 bms editer N.exe` 개명) 더블클릭이 조용히 실패합니다.
+   - 시작할 때(`EnableDesktopServices`, 백그라운드) **등록된 exe 가 디스크에서 사라졌을 때만** 지금 exe 로 다시 적고 `SHCNE_ASSOCCHANGED` 로 탐색기에 알립니다. 등록이 없거나(사용자가 연결을 안 함) 옛 exe 가 남아 있으면(1번·2번 같이 쓰기) **건드리지 않습니다** — 연결은 사용자의 선택입니다. `dotnet.exe`·`testhost` 로 뜬 경우도 제외합니다.
+10. **되돌리기 메모리 예산** ([`EditHistory`](muse%20dash%20bms%20editer/Services/EditHistory.cs)):
+   - 칸마다 노트를 통째 복제하므로 칸 수(100)만으로는 큰 차트(1만 노트↑, 건반 BMS 다운믹스)에서 수십~100MB 가 묶였습니다. 칸들의 노트 수 합을 `MaxTotalNotes`(60만)로 묶고, 그래도 최소 `MinDepth`(10)칸은 남깁니다.
+11. **재생 키음 몰아 울림 방지** (`MainWindowViewModel.KeySoundWindow`):
+   - 재생 타이머가 늦게 돌면(모달 창·큰 파일 열기로 UI 스레드가 막힘) 그 사이 노트가 한 프레임에 쏟아져 64보이스 상한을 채웠습니다. 최근 0.25초(`MaxKeySoundCatchUpSeconds`)만 울리고, 장치 위치가 뒤로 튀어도 기준(`_lastPlaybackPositionSeconds`)은 앞으로만 갑니다(중복 발음 방지).
+12. **저장 분할 수 상한 넘침** ([`BmsWriter.SplitByResolution`](muse%20dash%20bms%20editer/Services/BmsWriter.cs)):
+   - 한 마디·레인 노트들의 분모 최소공배수가 1920 을 넘으면 예전에는 1920 으로 잘라 반올림했습니다(7분할 줄 + 1/384 노트 → LCM 2688 → 노트가 저장마다 밀림). 이제 상한 안에 드는 노트끼리 한 줄로 묶고 나머지는 같은 마디·채널의 다음 줄로 씁니다. 보통 차트는 묶음이 하나라 출력이 예전과 같습니다.
+
 ---
 
 ## 4. 커스텀 에셋 주입 파이프라인 & UID 규칙
@@ -130,6 +140,11 @@ muse dash bms editer/
 * ❌ **테스트가 실제 사용자 폴더에 쓰기**:
   - `NoteIconImporter.Import` 가 대상과 상관없이 `%LocalAppData%\muse dash bms editer\note_icon_source.txt` 에 "마지막으로 가져온 폴더"를 적어서, `dotnet test` 를 돌릴 때마다 사용자의 기록이 곧 지워질 임시 경로로 덮어써졌습니다. 지금은 대상이 `UserFolder` 일 때만 적습니다. 새 테스트가 사용자 데이터 폴더를 건드리지 않는지 확인하십시오.
 
+* ❌ **저장 해상도를 상한(1920)으로 잘라 반올림하기** (v0.1.7 에서 수정):
+  - 1920 의 약수가 아닌 분모가 섞이면 노트가 경고 없이 밀립니다. 상한을 올리는 대신 줄을 나눠 씁니다(`SplitByResolution`). 해상도를 다시 한 줄로 강제하지 마십시오.
+* ❌ **파일 연결을 시작할 때마다 무조건 다시 등록하기**:
+  - 사용자가 1번·2번 exe 를 같이 쓰거나 다른 프로그램으로 연결을 바꿨을 때 그 선택을 덮어씁니다. 복구는 "등록된 exe 가 사라졌을 때만" 입니다.
+
 * ❌ **XAML 에 `NumericUpDown` 을 그대로 쓰기**:
   - Avalonia 12.0.5 의 자동화 연결이 `decimal` 을 UIA 로 못 넘겨, 화면 낭독기·접근성 도구가 붙어 있으면 값이 바뀔 때 예외가 납니다(차트를 여는 도중 문서가 반쯤만 들어옴). 평소에는 안 보입니다. [`NumberBox`](muse%20dash%20bms%20editer/Views/Controls/NumberBox.cs) 를 쓰십시오.
 
@@ -148,7 +163,7 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.1.6 (`.csproj` 의 `Version`). **테스트 476개 전부 통과** (2026-11-24, `dotnet test "muse dash bms editer.slnx"`).
+* **현재 버전**: v0.1.7 (`.csproj` 의 `Version`). **테스트 493개 전부 통과** (2026-11-25, `dotnet test "muse dash bms editer.slnx"`). Release 빌드 경고 0개.
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
 * **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,
   버전·테스트 수가 바뀌면 `docs/issues/known_issues.md` 머리말과 이 절을 함께 갱신하십시오 (이전에 224개로 굳어 있던 적이 있습니다).

@@ -112,35 +112,11 @@ public static class BmsWriter
         foreach (var group in groups)
         {
             var notes = group.OrderBy(n => n.Position).ToList();
-            var resolution = ComputeResolution(notes);
             var layers = new List<string[]>();
 
-            foreach (var note in notes)
-            {
-                var index = Math.Clamp((int)Math.Round(note.Position * resolution), 0, resolution - 1);
-                var code = note.WavKey;
-                var formatted = code.Length >= keyWidth ? code.Substring(0, keyWidth) : code.PadLeft(keyWidth, '0');
-
-                string[]? targetSlots = null;
-                foreach (var candidate in layers)
-                {
-                    if (candidate[index] == emptySlot)
-                    {
-                        targetSlots = candidate;
-                        break;
-                    }
-                }
-
-                if (targetSlots is null)
-                {
-                    targetSlots = new string[resolution];
-                    for (var i = 0; i < resolution; i++)
-                        targetSlots[i] = emptySlot;
-                    layers.Add(targetSlots);
-                }
-
-                targetSlots[index] = formatted;
-            }
+            // 한 줄에 담을 분할 수가 상한(1920)을 넘으면 줄을 나눈다. (SplitByResolution 주석)
+            foreach (var (resolution, bucket) in SplitByResolution(notes))
+                FillLayers(layers, bucket, resolution, keyWidth, emptySlot);
 
             var measureTag = group.Key.Measure.ToString("000", CultureInfo.InvariantCulture);
             var branchOrder = group.Key.BranchId > 0
@@ -292,21 +268,73 @@ public static class BmsWriter
         return map;
     }
 
-    // 마디 내 노트 위치(0.0~1.0)를 정확히 표현할 수 있는 최소 분할 수를 구함 (분모의 최소공배수)
-    private static int ComputeResolution(IReadOnlyList<BmsNote> notes)
+    // 노트들을 "한 줄로 정확히 쓸 수 있는 묶음"으로 나눈다. 각 묶음은 (분할 수, 노트들).
+    //
+    // 예전에는 분모의 최소공배수가 1920 을 넘으면 1920 으로 잘라 버렸다. 1920 의 약수가 아닌
+    // 분모(7분할 줄이 있는 차트에 1/384 노트를 찍는 경우 등: LCM 2688)는 가장 가까운 칸으로
+    // 반올림돼, 저장할 때마다 노트가 **경고 없이** 조금씩 밀렸다.
+    // 이제는 최소공배수가 상한 안에 드는 노트끼리만 한 줄로 묶고, 넘치는 노트는 같은 마디·채널의
+    // 다음 줄로 보낸다. BMS 는 같은 마디·채널 줄을 여러 개 두면 합쳐 읽으므로 위치가 그대로 남는다.
+    // 대부분의 차트는 묶음이 하나라 출력이 예전과 같다.
+    private static List<(int Resolution, List<BmsNote> Notes)> SplitByResolution(IReadOnlyList<BmsNote> notes)
     {
-        long resolution = 1;
+        var buckets = new List<(int Resolution, List<BmsNote> Notes)>();
+
         foreach (var note in notes)
         {
             var denominator = ToDenominator(note.Position, MaxResolutionDenominator);
-            resolution = Lcm(resolution, denominator);
-            if (resolution >= MaxResolutionDenominator)
+            var placed = false;
+
+            for (var i = 0; i < buckets.Count; i++)
             {
-                resolution = MaxResolutionDenominator;
+                var merged = Lcm(buckets[i].Resolution, denominator);
+                if (merged > MaxResolutionDenominator)
+                    continue;
+
+                buckets[i].Notes.Add(note);
+                buckets[i] = ((int)merged, buckets[i].Notes);
+                placed = true;
                 break;
             }
+
+            if (!placed)
+                buckets.Add((denominator, new List<BmsNote> { note }));
         }
-        return (int)resolution;
+
+        return buckets;
+    }
+
+    // 같은 칸에 노트가 둘 이상이면 덮어쓰지 않고 새 줄(겹)을 만든다.
+    // 겹은 분할 수가 같을 때만 함께 쓴다. 분할 수가 다른 줄과 섞으면 칸 번호가 어긋난다.
+    private static void FillLayers(List<string[]> layers, List<BmsNote> notes, int resolution, int keyWidth, string emptySlot)
+    {
+        var firstLayer = layers.Count;
+
+        foreach (var note in notes)
+        {
+            var index = Math.Clamp((int)Math.Round(note.Position * resolution), 0, resolution - 1);
+            var code = note.WavKey;
+            var formatted = code.Length >= keyWidth ? code.Substring(0, keyWidth) : code.PadLeft(keyWidth, '0');
+
+            string[]? targetSlots = null;
+            for (var i = firstLayer; i < layers.Count; i++)
+            {
+                if (layers[i][index] == emptySlot)
+                {
+                    targetSlots = layers[i];
+                    break;
+                }
+            }
+
+            if (targetSlots is null)
+            {
+                targetSlots = new string[resolution];
+                Array.Fill(targetSlots, emptySlot);
+                layers.Add(targetSlots);
+            }
+
+            targetSlots[index] = formatted;
+        }
     }
 
     private static int ToDenominator(double value, int maxDenominator)

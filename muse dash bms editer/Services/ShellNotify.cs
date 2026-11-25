@@ -20,6 +20,25 @@ internal static class ShellNotify
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern void SHChangeNotify(int eventId, uint flags, string? item1, string? item2);
 
+    private const int SHCNE_ASSOCCHANGED = 0x08000000;
+    private const uint SHCNF_IDLIST = 0x0000;
+
+    // 파일 연결을 등록·해제·복구한 뒤. 알리지 않으면 탐색기가 로그오프 전까지 옛 아이콘·연결을 쓴다.
+    public static void AssociationsChanged()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        try
+        {
+            SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, null, null);
+        }
+        catch (Exception)
+        {
+            // 알림은 힌트일 뿐이다. 연결 자체는 이미 레지스트리에 적혔다.
+        }
+    }
+
     public static void FileChanged(string fullPath)
     {
         if (!OperatingSystem.IsWindows())
