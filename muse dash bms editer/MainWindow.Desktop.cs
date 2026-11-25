@@ -158,7 +158,7 @@ public partial class MainWindow
             var choice = await ConfirmWindow.ShowThreeWayAsync(
                 this,
                 "지난번에 앱이 정상적으로 닫히지 않아 저장되지 않은 작업이 남아 있습니다.\n\n"
-                + $"파일: {name}\n자동 저장 시각: {when}\n노트 수: {entry.Meta.NoteCount}\n\n"
+                + $"파일: {name}\n자동 저장 시각: {when}\n노트 수: {(entry.Meta.NoteCount < 0 ? "알 수 없음" : entry.Meta.NoteCount.ToString())}\n\n"
                 + "복구해도 원본 파일은 저장하기 전까지 바뀌지 않습니다. 취소하면 다음 실행 때 다시 묻습니다.",
                 confirmText: "복구",
                 alternateText: "버리기",

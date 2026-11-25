@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace bms_editer.Services;
 
@@ -50,6 +51,11 @@ public sealed class AppSettings
 
     public List<string> RecentFiles { get; set; } = new();
 
+    // 이 버전이 모르는 칸. 새 버전이 적은 설정을 옛 버전으로 되돌려 쓰다 저장해도 지워지지 않게
+    // 읽은 그대로 들고 있다가 다시 쓴다(v0.1.8). 예전에는 버전을 오가면 새 설정이 매번 초기화됐다.
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnknownFields { get; set; }
+
     public static string DefaultPath => Path.Combine(AutoSaveStore.DefaultDataRoot, "settings.json");
 
     public void AddRecentFile(string path)
@@ -65,7 +71,8 @@ public sealed class AppSettings
     // 손상되거나 구버전/외부 편집으로 비정상 값이 들어와도 앱이 깨지지 않도록 보정한다.
     public AppSettings Sanitize()
     {
-        SchemaVersion = CurrentSchemaVersion;
+        // 새 버전이 적은 파일이면 그 번호를 낮추지 않는다. 다시 새 버전으로 돌아갔을 때 옛 파일로 오해하지 않게.
+        SchemaVersion = Math.Max(SchemaVersion, CurrentSchemaVersion);
         VerticalZoom = double.IsFinite(VerticalZoom) ? Math.Clamp(VerticalZoom, 1.0, 32.0) : 10.0;
         HorizontalZoom = double.IsFinite(HorizontalZoom) ? Math.Clamp(HorizontalZoom, 0.5, 8.0) : 2.0;
         WaveformHorizontalZoom = double.IsFinite(WaveformHorizontalZoom) ? Math.Clamp(WaveformHorizontalZoom, 0.5, 8.0) : 1.0;
@@ -90,6 +97,7 @@ public sealed class AppSettings
     public static AppSettings Load(string? path = null)
     {
         var file = path ?? DefaultPath;
+        CleanStaleTempFiles(file);
         try
         {
             if (File.Exists(file))
@@ -142,6 +150,36 @@ public sealed class AppSettings
                 try { File.Delete(temp); }
                 catch { /* 임시 파일 정리 실패 무시 */ }
             }
+        }
+    }
+
+    // 저장 도중 전원이 나가면 settings.json.<pid>.<guid>.tmp 가 남는다. 하루 지난 것만 치운다
+    // (지금 다른 창이 쓰는 중인 임시 파일을 건드리지 않도록).
+    public static void CleanStaleTempFiles(string file, TimeSpan? olderThan = null)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(file);
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+                return;
+
+            var cutoff = DateTime.UtcNow - (olderThan ?? TimeSpan.FromDays(1));
+            foreach (var temp in Directory.EnumerateFiles(dir, Path.GetFileName(file) + ".*.tmp"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(temp) < cutoff)
+                        File.Delete(temp);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 다음 파일로
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            System.Diagnostics.Debug.WriteLine($"설정 임시 파일 정리 실패: {ex.Message}");
         }
     }
 

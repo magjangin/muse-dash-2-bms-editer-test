@@ -143,6 +143,8 @@ public sealed class AutoSaveStore : IDisposable
 
                 if (TryReadEntry(id, folder) is { } entry)
                     entries.Add(entry);
+                else
+                    PruneIfAbandoned(folder);
             }
 
             return entries.OrderByDescending(e => e.Meta.SavedAtUtc).ToArray();
@@ -249,16 +251,66 @@ public sealed class AutoSaveStore : IDisposable
         try
         {
             var chart = ChartFiles(folder).LastOrDefault();
-            var metaPath = Path.Combine(folder, MetaFileName);
-            if (chart is null || !File.Exists(metaPath))
+            if (chart is null)
                 return null;
 
-            var meta = JsonSerializer.Deserialize<AutoSaveMeta>(File.ReadAllText(metaPath));
-            return meta is null ? null : new AutoSaveEntry(id, folder, chart, meta);
+            // "{}" 처럼 형식만 맞고 칸이 빈 meta 도 깨진 것으로 본다(BasePath 가 없으면 키음 기준을 못 잡는다).
+            var meta = TryReadMeta(Path.Combine(folder, MetaFileName));
+            if (meta is null || string.IsNullOrEmpty(meta.BasePath))
+                meta = FallbackMeta(folder, chart);
+            return new AutoSaveEntry(id, folder, chart, meta);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return null;
+        }
+    }
+
+    private static AutoSaveMeta? TryReadMeta(string metaPath)
+    {
+        try
+        {
+            return File.Exists(metaPath) ? JsonSerializer.Deserialize<AutoSaveMeta>(File.ReadAllText(metaPath)) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    // 차트는 남았는데 meta.json 이 없거나 깨진 경우(첫 자동 저장에서 차트만 쓰고 죽음, 디스크 오류).
+    // 예전에는 이런 폴더를 복구 목록에서 빼서 작업이 조용히 사라졌다(v0.1.8).
+    // 원본 경로를 모르므로 "제목 없음"으로 살린다. 노트는 그대로이고, 키음은 폴더를 다시 잡아 주면 된다.
+    private static AutoSaveMeta FallbackMeta(string folder, string chart)
+    {
+        var savedAt = File.GetLastWriteTimeUtc(chart);
+        return new AutoSaveMeta(
+            OriginalPath: null,
+            BasePath: Path.Combine(folder, "untitled.bms"),
+            SavedAtUtc: savedAt,
+            NoteCount: -1, // 모름. 복구 질문 창에 "알 수 없음"으로 보인다.
+            CodePage: Encoding.UTF8.CodePage,
+            HasBom: false,
+            Title: "");
+    }
+
+    // 쥐고 있는 창이 없고 차트도 없는 폴더(첫 쓰기 전에 죽음)는 복구할 것이 없다.
+    // 남겨 두면 실행마다 훑는 폴더만 쌓이므로 하루 지난 것은 치운다.
+    public static readonly TimeSpan AbandonedFolderAge = TimeSpan.FromDays(1);
+
+    private static void PruneIfAbandoned(string folder)
+    {
+        try
+        {
+            if (Directory.EnumerateFiles(folder, "*.bms").Any())
+                return;
+
+            if (Directory.GetLastWriteTimeUtc(folder) < DateTime.UtcNow - AbandonedFolderAge)
+                TryDeleteDirectory(folder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"빈 자동 저장 폴더 정리 실패: {ex.Message}");
         }
     }
 

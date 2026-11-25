@@ -52,7 +52,7 @@
 | :--- | :--- |
 | **[BmsParser.cs](../../muse%20dash%20bms%20editer/Services/BmsParser.cs)** | BMS 파일을 `BmsChart` 로 읽습니다. 바이트로 한 번만 읽고 BOM → UTF-8(엄격) → CP932/CP949 순으로 인코딩을 가립니다(`#WAV` 파일명이 폴더에 실제로 있는지가 1순위 증거). 2자리/3자리 키음 배치를 가리고, 편집 레인이 아닌 줄은 원문 보존줄로 남기면서 `#xxx02`·`#xxx03`·`#xxx08` 은 시간축용으로 따로 읽습니다. 조건 제어 줄은 `BranchTracker` 가 따라가며 줄마다 갈래 번호를 붙입니다(`#IF`~`#ENDIF`, `#SWITCH` 안에서는 `#CASE` 마다 앞 갈래를 닫고 새 갈래). 다운믹서가 같은 인코딩 판별을 쓰도록 `ReadLinesForAnalysis` 를 엽니다. |
 | **[BmsWriter.cs](../../muse%20dash%20bms%20editer/Services/BmsWriter.cs)** | 문서를 BMS 텍스트로 씁니다. 값이 빈 헤더는 쓰지 않고, 보존한 헤더와 `#WAV`(중복 번호는 마지막 것 하나)를 쓴 뒤 데이터 줄을 씁니다. 조건 밖 줄은 마디 → (원문 줄, 레인 순서)로 정렬하고, 조건 블록은 원문 순서 그대로 **덩어리째** 내보내 조건 밖 줄이 `#IF`~`#ENDIF` 사이로 끼어들지 않게 합니다(`GroupConditionalBlocks`). 마디 안 위치는 분모의 최소공배수(최대 1920)로 분할하고, 최소공배수가 1920 을 넘으면 반올림하지 않고 상한 안에 드는 노트끼리 묶어 같은 마디·채널 줄을 나눠 씁니다(`SplitByResolution`). 또 같은 마디·레인·자리에 노트가 둘 이상이면 덮어쓰지 않고 여러 `#MMMCC:` 줄로 나누어 씁니다. |
-| **[SafeFileWriter.cs](../../muse%20dash%20bms%20editer/Services/SafeFileWriter.cs)** | 같은 폴더의 임시 파일에 끝까지 쓴 뒤에만 원본과 바꿔치기합니다(`File.Replace`). 직전 내용은 `.bak` 으로 남고, `Replace` 를 못 쓰는 드라이브에서는 `Move(overwrite)` 로 물러납니다. |
+| **[SafeFileWriter.cs](../../muse%20dash%20bms%20editer/Services/SafeFileWriter.cs)** | 같은 폴더의 임시 파일에 끝까지 쓴 뒤에만 원본과 바꿔치기합니다(`File.Replace`). 직전 내용은 `.bak` 으로 남고, `Replace` 를 못 쓰는 드라이브에서는 `Move(overwrite)` 로 물러납니다. 저장이 끝나면 같은 폴더에 남은 `<차트>.<32자리>.tmp`(저장 중 전원 차단 흔적) 중 1시간 넘은 것만 치웁니다(`CleanStaleTempFiles`, v0.1.8). |
 | **[FolderMedia.cs](../../muse%20dash%20bms%20editer/Services/FolderMedia.cs)** | 곡 폴더에서 차트 · 음원(OGG) · 영상을 고르는 규칙입니다. 폴더 이름과 같은 파일이 있으면 그것, 없으면 이름순 첫 번째. 폴더 열기와 건반 BMS 가져오기가 같이 씁니다. |
 | **[WavKey.cs](../../muse%20dash%20bms%20editer/Services/WavKey.cs)** | base-36 키음 번호(`01`~`ZZ`, `001`~`ZZZ`)의 파싱 · 서식 · 자릿수 규칙을 한 곳에 둡니다. |
 | **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 등록/해제합니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). `RepairIfStale()` 은 시작할 때 **등록된 exe 가 사라졌을 때만** 지금 exe 로 다시 적어 업데이트로 끊긴 연결을 되살립니다(등록이 없거나 옛 exe 가 남아 있으면 건드리지 않음). |
@@ -62,8 +62,8 @@
 | **[NoteIconImporter.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImporter.cs)** | Spine Support Tool 렌더 폴더에서 게임 노트·보스·하트·음표·씬 전환 PNG 를 찾아 `%LOCALAPPDATA%\muse dash bms editer\note_icons` 에 UID 이름으로 복사합니다. |
 | **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 판별 및 변환 규칙(`NoteSpeed`)을 담습니다. |
 | **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | `SceneUid.Of`(파일명 앞 6자리 UID 추출, `NoteIcons.UidOf`·`WavSearch` 가 같이 씀), 구간 씬·속도 바꾸기(`SceneWavResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
-| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash bms editer\settings.json` 에 보관합니다. 스키마 버전·범위 보정(`Sanitize`)·손상 파일 백업(`.corrupt.bak`)을 지원하며, 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. |
-| **[AutoSaveStore.cs](../../muse%20dash%20bms%20editer/Services/AutoSaveStore.cs)** | `%LocalAppData%\muse dash bms editer\` 아래에 세션별 자동 저장(`autosave\`, 최근 5벌, `session.lock` 보호)과 저장 전 백업(`backups\`, 최근 10세대 + `original.bms`)을 원자적으로 기록·복구·정리합니다. |
+| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash bms editer\settings.json` 에 보관합니다. 스키마 버전·범위 보정(`Sanitize`)·손상 파일 백업(`.corrupt.bak`)을 지원하며, 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. 이 버전이 모르는 칸은 `UnknownFields`(`[JsonExtensionData]`)로 들고 있다가 그대로 다시 쓰고, 새 버전의 스키마 번호를 낮추지 않아 **버전을 오가도 설정이 지워지지 않습니다**. 하루 지난 `settings.json.*.tmp` 는 읽을 때 치웁니다(v0.1.8). |
+| **[AutoSaveStore.cs](../../muse%20dash%20bms%20editer/Services/AutoSaveStore.cs)** | `%LocalAppData%\muse dash bms editer\` 아래에 세션별 자동 저장(`autosave\`, 최근 5벌, `session.lock` 보호)과 저장 전 백업(`backups\`, 최근 10세대 + `original.bms`)을 원자적으로 기록·복구·정리합니다. `meta.json` 이 없거나 깨졌어도 차트가 있으면 "제목 없음"·노트 수 알 수 없음(-1)으로 복구 목록에 올리고, 차트도 잠금도 없는 하루 지난 빈 폴더는 치웁니다(v0.1.8). |
 | **[CrashLog.cs](../../muse%20dash%20bms%20editer/Services/CrashLog.cs)** | 예기치 못한 예외를 `%LocalAppData%\muse dash bms editer\logs\crash-yyyyMMdd-HHmmss-fff.log` 에 스레드 안전하게 기록하고 최근 20개만 유지합니다. |
 
 ### 2-2. 시간축 · 되돌리기
@@ -83,7 +83,7 @@
 | **[IbmscBpmDetector.cs](../../muse%20dash%20bms%20editer/Services/IbmscBpmDetector.cs)** | iBMSC MD 의 BPM 자동 측정을 숫자가 같게 옮긴 것입니다. 원본과 다른 점은 범위(60~199.99)와 0.01 간격뿐이고, cos 만 쓰는 점수 식의 한계(위상이 어긋나면 엉뚱한 BPM, 믿을 수 없는 소수점)도 그대로 둡니다. |
 | **[PreciseBpmDetector.cs](../../muse%20dash%20bms%20editer/Services/PreciseBpmDetector.cs)** | 소수점까지 재는 BPM 측정입니다. 다섯 대역 어택 곡선(`BuildOnsetCurve`, 5ms 칸)에 복소 지수 내적 크기 + 2·4배 박 가중을 씁니다. 어택 곡선은 `GridFitAdvisor` 와 같이 씁니다. |
 | **[GridFitAdvisor.cs](../../muse%20dash%20bms%20editer/Services/GridFitAdvisor.cs)** | "파형으로 맞춰도 되나 / 소리로 들어야 하나"를 고릅니다. 8마디 구간마다 어택이 16분 격자 한쪽으로 몰렸는지 보고, 25ms 이상 같은 쪽으로 밀린 구간이 3개 이상 이어지면 `Listen`. 숫자는 일부러 보여 주지 않습니다. |
-| **[KeySoundPlayer.cs](../../muse%20dash%20bms%20editer/Services/KeySoundPlayer.cs)** | 키음 믹서입니다. 미리 풀어 둔 PCM 을 자기 `waveOut` 스트림(44.1kHz 스테레오, 약 23ms 버퍼 3개, 최대 64보이스)에 더해 내보내므로 화음과 긴 키음이 끊기지 않습니다. 장치 오류 시 자동 재오픈하며, 디코딩에 실패한 파일만 Win32 `PlaySound` 로 물러납니다. |
+| **[KeySoundPlayer.cs](../../muse%20dash%20bms%20editer/Services/KeySoundPlayer.cs)** | 키음 믹서입니다. 미리 풀어 둔 PCM 을 자기 `waveOut` 스트림(44.1kHz 스테레오, 약 23ms 버퍼 3개, 최대 64보이스)에 더해 내보내므로 화음과 긴 키음이 끊기지 않습니다. 장치 오류 시 자동 재오픈하며, 디코딩에 실패한 파일만 Win32 `PlaySound` 로 물러납니다. 디코딩 실패(잠긴 파일·깨진 파일)는 영구히 캐시하지 않고 2초 뒤 다시 읽습니다(v0.1.8). |
 | **[WavDecoder.cs](../../muse%20dash%20bms%20editer/Services/WavDecoder.cs)** | 키음 WAV(8/16/24/32bit PCM, IEEE Float, `WAVE_FORMAT_EXTENSIBLE`)와 OGG 를 44.1kHz 16bit 스테레오로 풀고 선형 보간으로 리샘플링합니다. |
 
 ### 2-4. 홀드 짝 (`Services/Holds/`)
@@ -198,7 +198,7 @@ xUnit + Avalonia Headless 입니다. 헤드리스 창은 디스패처 스레드 
 | 노트 그림 · 씬 · 속도 · 필터 | `NoteIconTests` · `NoteIconImporterTests` · `NoteSpeedTests` · `SceneConvertTests` · `WavSearchTests` |
 | 다운믹스 | `DownmixTests` · `DownmixRealChartTests` |
 | 창 · 보조 창 | `WindowSmokeTests` · `UndoUiSmokeTests` · `ControlPanelTests` · `LoadPerformanceTests` |
-| 오디오 · 내성 · 기타 | `KeySoundPlayerTests` · `PlaybackSpeedAndKeySoundTests` · `FolderMediaTests` · `AuditResilienceTests` · `AuditV017Tests` |
+| 오디오 · 내성 · 기타 | `KeySoundPlayerTests` · `PlaybackSpeedAndKeySoundTests` · `FolderMediaTests` · `AuditResilienceTests` · `AuditV017Tests` · `AuditV018Tests` |
 
 > `DownmixRealChartTests` 와 `DownmixTests` · `HoldPairingTests` 의 "실제 차트" 테스트는 이 개발 PC 의 게임 폴더(`H:\…`)를 읽습니다.
 > 폴더가 없는 PC 에서는 한 줄만 남기고 **통과로** 끝납니다(건너뜀으로 세지 않습니다).
