@@ -121,11 +121,30 @@ public sealed partial class MainWindowViewModel
 
         PlaybackPositionSeconds = currentSec;
 
-        PlayNotesInTimeRange(_lastPlaybackPositionSeconds + AudioOffsetSeconds, currentSec + AudioOffsetSeconds);
-        _lastPlaybackPositionSeconds = currentSec;
+        var (soundFrom, soundTo) = KeySoundWindow(_lastPlaybackPositionSeconds, currentSec);
+        if (soundTo > soundFrom)
+            PlayNotesInTimeRange(soundFrom + AudioOffsetSeconds, soundTo + AudioOffsetSeconds);
+
+        // 장치 위치가 잠깐 뒤로 튀어도(드라이버 지터·장치 전환) 기준은 앞으로만 간다.
+        // 뒤로 물리면 방금 울린 키음이 다시 울린다.
+        _lastPlaybackPositionSeconds = Math.Max(_lastPlaybackPositionSeconds, currentSec);
 
         if (finished || PlaybackPositionSeconds >= OggDurationSeconds)
             StopPlayback(resetCursor: false);
+    }
+
+    // 타이머가 한참 늦게 돌면(모달 창·큰 차트 열기·디스크 대기로 UI 스레드가 막힘) 그 사이의
+    // 키음을 한꺼번에 몰아 울리지 않는다. 예전에는 2초 멈칫하면 그 2초치 노트가 한 프레임에
+    // 쏟아져 동시 보이스 상한(64)을 채우고 소리가 뭉개졌다. 늦은 만큼은 버리고 최근 구간만 울린다.
+    public const double MaxKeySoundCatchUpSeconds = 0.25;
+
+    // 이번 프레임에 울릴 구간 [from, to). 역행했으면 빈 구간을 돌려준다.
+    public static (double From, double To) KeySoundWindow(double lastSeconds, double currentSeconds)
+    {
+        if (!double.IsFinite(lastSeconds) || !double.IsFinite(currentSeconds) || currentSeconds <= lastSeconds)
+            return (currentSeconds, currentSeconds);
+
+        return (Math.Max(lastSeconds, currentSeconds - MaxKeySoundCatchUpSeconds), currentSeconds);
     }
 
     private void PlayNotesInTimeRange(double start, double end)
