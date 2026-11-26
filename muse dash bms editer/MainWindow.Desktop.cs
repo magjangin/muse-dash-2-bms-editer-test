@@ -43,6 +43,29 @@ public partial class MainWindow
         Activated += OnWindowActivated;
         App.ExternalOpenRequested += OnExternalOpenRequested;
         Closed += (_, _) => App.ExternalOpenRequested -= OnExternalOpenRequested;
+
+        RepairFileAssociationInBackground();
+    }
+
+    // 업데이트로 exe 경로가 바뀌어 끊긴 탐색기 연결을 조용히 되살린다(FileAssociation.RepairIfStale).
+    // 레지스트리 접근이 느린 PC 도 있어 창 띄우기를 막지 않게 뒤로 넘긴다. 실패해도 앱 쓰기와는 무관하다.
+    private static void RepairFileAssociationInBackground()
+    {
+        if (!OperatingSystem.IsWindows() || Environment.ProcessPath is not { } exePath)
+            return;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (OperatingSystem.IsWindows() && FileAssociation.RepairIfStale(exePath))
+                    ShellNotify.AssociationsChanged();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"파일 연결 복구 실패: {ex.Message}");
+            }
+        });
     }
 
     // 시작(자동 저장 복구 질문·실행 인자 열기)이 끝나기 전이거나 다른 외부 열기를 처리하는 중에
@@ -136,7 +159,7 @@ public partial class MainWindow
             var choice = await ConfirmWindow.ShowThreeWayAsync(
                 this,
                 "지난번에 앱이 정상적으로 닫히지 않아 저장되지 않은 작업이 남아 있습니다.\n\n"
-                + $"파일: {name}\n자동 저장 시각: {when}\n노트 수: {entry.Meta.NoteCount}\n\n"
+                + $"파일: {name}\n자동 저장 시각: {when}\n노트 수: {(entry.Meta.NoteCount < 0 ? "알 수 없음" : entry.Meta.NoteCount.ToString())}\n\n"
                 + "복구해도 원본 파일은 저장하기 전까지 바뀌지 않습니다. 취소하면 다음 실행 때 다시 묻습니다.",
                 confirmText: "복구",
                 alternateText: "버리기",

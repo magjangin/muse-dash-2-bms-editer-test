@@ -153,7 +153,7 @@ internal static class UidTypeResolver
             if (match.Success)
                 uid = match.Groups[match.Groups.Count > 1 ? 1 : 0].Value;
         }
-        catch (RegexMatchTimeoutException)
+        catch (Exception ex) when (ex is RegexMatchTimeoutException or ArgumentException)
         {
             uid = null;
         }

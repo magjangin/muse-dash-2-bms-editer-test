@@ -11,7 +11,7 @@
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
 ![Avalonia 12](https://img.shields.io/badge/Avalonia_UI-12-8B44AC)
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D4)
-![version](https://img.shields.io/badge/version-0.2.1-blue)
+![version](https://img.shields.io/badge/version-0.2.2-blue)
 ![target](https://img.shields.io/badge/target-Muse_Dash_2-ff4081)
 ![status](https://img.shields.io/badge/status-fork_preparing-orange)
 

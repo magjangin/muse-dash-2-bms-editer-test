@@ -51,12 +51,12 @@
 | 파일명 | 역할 및 핵심 기술 |
 | :--- | :--- |
 | **[BmsParser.cs](../../muse%20dash%20bms%20editer/Services/BmsParser.cs)** | BMS 파일을 `BmsChart` 로 읽습니다. 바이트로 한 번만 읽고 BOM → UTF-8(엄격) → CP932/CP949 순으로 인코딩을 가립니다(`#WAV` 파일명이 폴더에 실제로 있는지가 1순위 증거). 2자리/3자리 키음 배치를 가리고, 편집 레인이 아닌 줄은 원문 보존줄로 남기면서 `#xxx02`·`#xxx03`·`#xxx08` 은 시간축용으로 따로 읽습니다. 조건 제어 줄은 `BranchTracker` 가 따라가며 줄마다 갈래 번호를 붙입니다(`#IF`~`#ENDIF`, `#SWITCH` 안에서는 `#CASE` 마다 앞 갈래를 닫고 새 갈래). 다운믹서가 같은 인코딩 판별을 쓰도록 `ReadLinesForAnalysis` 를 엽니다. |
-| **[BmsWriter.cs](../../muse%20dash%20bms%20editer/Services/BmsWriter.cs)** | 문서를 BMS 텍스트로 씁니다. 값이 빈 헤더는 쓰지 않고, 보존한 헤더와 `#WAV`(중복 번호는 마지막 것 하나)를 쓴 뒤 데이터 줄을 씁니다. 조건 밖 줄은 마디 → (원문 줄, 레인 순서)로 정렬하고, 조건 블록은 원문 순서 그대로 **덩어리째** 내보내 조건 밖 줄이 `#IF`~`#ENDIF` 사이로 끼어들지 않게 합니다(`GroupConditionalBlocks`). 마디 안 위치는 분모의 최소공배수(최대 1920)로 분할하며, 같은 마디·레인·자리에 노트가 둘 이상이면 덮어쓰지 않고 여러 `#MMMCC:` 줄로 나누어 씁니다. |
-| **[SafeFileWriter.cs](../../muse%20dash%20bms%20editer/Services/SafeFileWriter.cs)** | 같은 폴더의 임시 파일에 끝까지 쓴 뒤에만 원본과 바꿔치기합니다(`File.Replace`). 직전 내용은 `.bak` 으로 남고, `Replace` 를 못 쓰는 드라이브에서는 `Move(overwrite)` 로 물러납니다. |
+| **[BmsWriter.cs](../../muse%20dash%20bms%20editer/Services/BmsWriter.cs)** | 문서를 BMS 텍스트로 씁니다. 값이 빈 헤더는 쓰지 않고, 보존한 헤더와 `#WAV`(중복 번호는 마지막 것 하나)를 쓴 뒤 데이터 줄을 씁니다. 조건 밖 줄은 마디 → (원문 줄, 레인 순서)로 정렬하고, 조건 블록은 원문 순서 그대로 **덩어리째** 내보내 조건 밖 줄이 `#IF`~`#ENDIF` 사이로 끼어들지 않게 합니다(`GroupConditionalBlocks`). 마디 안 위치는 분모의 최소공배수로 분할하며, 최소공배수가 1920 을 넘으면 노트 타이밍을 보존하기 위해 같은 마디·채널의 여러 줄로 나누어 씁니다(`SplitByResolution`). |
+| **[SafeFileWriter.cs](../../muse%20dash%20bms%20editer/Services/SafeFileWriter.cs)** | 같은 폴더의 임시 파일에 끝까지 쓴 뒤에만 원본과 바꿔치기합니다(`File.Replace`). 직전 내용은 `.bak` 으로 남고, `Replace` 를 못 쓰는 드라이브에서는 `Move(overwrite)` 로 물러납니다. 저장 완료 후 1시간 이상 지난 이전 임시 파일(`.32hex.tmp`)을 안전하게 청소합니다(`CleanStaleTempFiles`). |
 | **[FolderMedia.cs](../../muse%20dash%20bms%20editer/Services/FolderMedia.cs)** | 곡 폴더에서 차트 · 음원(OGG) · 영상을 고르는 규칙입니다. 폴더 이름과 같은 파일이 있으면 그것, 없으면 이름순 첫 번째. 폴더 열기와 건반 BMS 가져오기가 같이 씁니다. |
 | **[WavKey.cs](../../muse%20dash%20bms%20editer/Services/WavKey.cs)** | base-36 키음 번호(`01`~`ZZ`, `001`~`ZZZ`)의 파싱 · 서식 · 자릿수 규칙을 한 곳에 둡니다. |
-| **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 연결하고, 명령줄 인자로 받은 차트 경로를 엽니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). 메뉴의 "탐색기에서 BMS 파일 연결 해제" 가 부릅니다. |
-| **[ShellNotify.cs](../../muse%20dash%20bms%20editer/Services/ShellNotify.cs)** | 파일 저장 및 확장자 연결 변경 시 Windows 탐색기에 `SHChangeNotify` 로 알립니다. |
+| **[FileAssociation.cs](../../muse%20dash%20bms%20editer/Services/FileAssociation.cs)** | `.bms` · `.bme` · `.bml` 확장자를 현재 사용자 레지스트리(`HKCU\Software\Classes`)에 연결하고, 명령줄 인자로 받은 차트 경로를 엽니다. 업데이트로 exe 경로가 바뀌어 연결이 끊겼을 때 시작 시 자동 복구(`RepairIfStale`)합니다. `Unregister()` 는 이 에디터가 등록한 연결만 지웁니다(다른 프로그램으로 이미 바뀐 확장자는 건드리지 않음). |
+| **[ShellNotify.cs](../../muse%20dash%20bms%20editer/Services/ShellNotify.cs)** | 파일 저장 및 확장자 연결 변경 시 Windows 탐색기에 `SHChangeNotify`(`SHCNE_ASSOCCHANGED`) 로 알립니다. |
 | **[NoteIconImage.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImage.cs)** | `NoteIcons.cs` 에서 분리한 그림 다듬기(그림자 제거 · 여백 자르기 · 해머 줄 제거와 세우기)입니다. 순수 픽셀 계산이라 카탈로그와 따로 둡니다. |
 | **[NoteIcons.cs](../../muse%20dash%20bms%20editer/Services/NoteIcons.cs)** | `#WAV` 파일명 앞 6자리 UID 에 대응하는 노트 아이콘(`note_icons/<UID>.png`)을 읽고, 그림자 제거·여백 자르기를 거쳐 크기별로 캐시합니다. 속도 2·3(`yy`)도 속도 1 아이콘·방향·배율로 매핑하며, 속도별 그림이 없으면 속도 1 비트맵을 **같이 씁니다**(해제할 때 중복을 걸러 한 번만 `Dispose`). 씬 전환(`0004yy`)에는 방향을 붙이지 않습니다. |
 | **[AppIdentity.cs](../../muse%20dash%20bms%20editer/Services/AppIdentity.cs)** | 뮤즈 대시 1 에디터와 충돌하지 않도록 사용자 데이터 폴더(`muse dash 2 bms editer`), 창 이름, 파일 연결 ProgId(`MuseDash2Bms.Chart`), 단일 인스턴스 뮤텍스·파이프 이름(`MuseDash2BmsEditer`)을 한 곳에 모읍니다. |
@@ -65,14 +65,14 @@
 | **[NoteIconImporter.cs](../../muse%20dash%20bms%20editer/Services/NoteIconImporter.cs)** | Spine Support Tool 렌더 폴더에서 게임 노트·보스·하트·음표·씬 전환 PNG 를 찾아 `%LOCALAPPDATA%\muse dash 2 bms editer\note_icons` 에 UID 이름으로 복사합니다. |
 | **[NoteSpeed.cs](../../muse%20dash%20bms%20editer/Services/NoteSpeed.cs)** | 뮤즈 대시 노트의 속도(1~3) 변환 규칙과 `SceneNoteSpeedResolver` 를 담습니다. |
 | **[SceneSwap.cs](../../muse%20dash%20bms%20editer/Services/SceneSwap.cs)** | `SceneUid.Of`(파일명 앞 6자리 UID 추출, `NoteIcons.UidOf`·`WavSearch` 가 같이 씀), 구간 씬 바꾸기(`SceneKeyResolver`)와 시작/복귀 씬 전환 노트(`0004xx`) 계산을 맡습니다. |
-| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash 2 bms editer\settings.json` 에 원자적으로 보관합니다. 차트 내용은 담지 않으며, 못 읽으면 예외 없이 기본값으로 돌아갑니다. 실제 앱에서만 쓰고(`EnableDesktopServices`) 헤드리스 테스트는 건드리지 않습니다. |
+| **[AppSettings.cs](../../muse%20dash%20bms%20editer/Services/AppSettings.cs)** | 켤 때마다 기본값으로 돌아가면 곤란한 값(줌 · 보기 방향 · 동그라미 모양 · `ShowNoteSpeed` · 재생 배속 · 키음 음량 · 창 위치 · 최근 파일 10개)을 `%LocalAppData%\muse dash 2 bms editer\settings.json` 에 원자적으로 보관합니다. `[JsonExtensionData]` 로 모르는 필드를 보존하여 구·신버전 및 1번·2번 exe 를 오가도 새 설정이 지워지지 않으며, 스키마 다운그레이드를 방지합니다. 하루 지난 설정 임시 파일도 자동 청소합니다. |
 
 ### 2-2. 시간축 · 되돌리기
 
 | 파일명 | 역할 및 핵심 기술 |
 | :--- | :--- |
 | **[ChartTimeline.cs](../../muse%20dash%20bms%20editer/Services/ChartTimeline.cs)** | **"마디 위치 ↔ 초" 변환을 맡는 유일한 곳**입니다. 기본 식은 `tick × 240 / bpm` 이고, 마디 길이 배율(`#xxx02`)과 BPM 변화(`#xxx03`/`#xxx08`)를 마디 경계마다 누적해 둡니다. 격자선 · 노트 · 클릭 · 재생 · 키음이 모두 여기에 묻습니다. → [bpm_sync_principles.md](bpm_sync_principles.md) |
-| **[EditHistory.cs](../../muse%20dash%20bms%20editer/Services/EditHistory.cs)** | 되돌리기 / 다시 하기 칸입니다. 편집 직후의 문서를 통째 복제한 스냅샷(`EditSnapshot`)을 최대 100칸 쌓습니다. 명령마다 역연산을 적지 않으므로 빠뜨릴 편집 경로가 없습니다. |
+| **[EditHistory.cs](../../muse%20dash%20bms%20editer/Services/EditHistory.cs)** | 되돌리기 / 다시 하기 칸입니다. 편집 직후의 문서를 통째 복제한 스냅샷(`EditSnapshot`)을 최대 100칸 쌓습니다. 대용량 차트에서의 메모리 폭증을 방지하기 위해 전체 노트 수 상한(60만 노트, `MaxTotalNotes`) 예산 안에서 관리하며, 최소 10칸(`MinDepth`)은 항상 보장합니다. |
 
 ### 2-3. 오디오
 
@@ -84,7 +84,7 @@
 | **[IbmscBpmDetector.cs](../../muse%20dash%20bms%20editer/Services/IbmscBpmDetector.cs)** | iBMSC MD 의 BPM 자동 측정을 숫자가 같게 옮긴 것입니다. 원본과 다른 점은 범위(60~199.99)와 0.01 간격뿐이고, cos 만 쓰는 점수 식의 한계(위상이 어긋나면 엉뚱한 BPM, 믿을 수 없는 소수점)도 그대로 둡니다. |
 | **[PreciseBpmDetector.cs](../../muse%20dash%20bms%20editer/Services/PreciseBpmDetector.cs)** | 소수점까지 재는 BPM 측정입니다. 다섯 대역 어택 곡선(`BuildOnsetCurve`, 5ms 칸)에 복소 지수 내적 크기 + 2·4배 박 가중을 씁니다. 어택 곡선은 `GridFitAdvisor` 와 같이 씁니다. |
 | **[GridFitAdvisor.cs](../../muse%20dash%20bms%20editer/Services/GridFitAdvisor.cs)** | "파형으로 맞춰도 되나 / 소리로 들어야 하나"를 고릅니다. 8마디 구간마다 어택이 16분 격자 한쪽으로 몰렸는지 보고, 25ms 이상 같은 쪽으로 밀린 구간이 3개 이상 이어지면 `Listen`. 숫자는 일부러 보여 주지 않습니다. |
-| **[KeySoundPlayer.cs](../../muse%20dash%20bms%20editer/Services/KeySoundPlayer.cs)** | 키음 믹서입니다. 미리 풀어 둔 PCM 을 자기 `waveOut` 스트림(44.1kHz 스테레오, 23ms 버퍼 3개, 1회 `PrepareHeader` 재사용, 락프리 보이스 큐)에 더해 내보내므로 화음과 긴 키음이 끊기지 않습니다. 차트 전환 시 프리로드 취소 토큰으로 구 차트 적재를 막고, 디코딩에 실패한 파일만 Win32 `PlaySound` 로 물러납니다. |
+| **[KeySoundPlayer.cs](../../muse%20dash%20bms%20editer/Services/KeySoundPlayer.cs)** | 키음 믹서입니다. 미리 풀어 둔 PCM 을 자기 `waveOut` 스트림(44.1kHz 스테레오, 23ms 버퍼 3개, 1회 `PrepareHeader` 재사용, 락프리 보이스 큐)에 더해 내보내므로 화음과 긴 키음이 끊기지 않습니다. 잠깐 잠긴 WAV 디코딩 실패는 영구 캐시하지 않고 2초 뒤 재시도하며, waveOut 장치 에러 발생 시 자동 복구합니다. |
 | **[WavDecoder.cs](../../muse%20dash%20bms%20editer/Services/WavDecoder.cs)** | 키음 WAV(8/16/24/32bit PCM, IEEE Float, `WAVE_FORMAT_EXTENSIBLE`)와 OGG 를 44.1kHz 16bit 스테레오로 풀고 선형 보간으로 리샘플링합니다(44.1kHz 16bit 스테레오/모노는 중간 버퍼 없이 패스트패스 변환). |
 
 ### 2-4. 홀드 짝 (`Services/Holds/`)
@@ -190,7 +190,7 @@ xUnit + Avalonia Headless 입니다. 헤드리스 창은 디스패처 스레드 
 
 | 묶음 | 파일 |
 | :--- | :--- |
-| 파일 왕복 · 저장 안전 · 내성 | `BmsRoundTripTests` · `RoundTripCleanlinessTests` · `SaveIntegrityTests`(조건 블록 포함) · `EncodingDetectionTests` · `AudioOffsetTests` · `ResilienceAndPerformanceTests` |
+| 파일 왕복 · 저장 안전 · 내성 | `BmsRoundTripTests` · `RoundTripCleanlinessTests` · `SaveIntegrityTests`(조건 블록 포함) · `EncodingDetectionTests` · `AudioOffsetTests` · `ResilienceAndPerformanceTests` · `AuditV017Tests` · `AuditV018Tests` |
 | 시간축 · 격자 · 파형 | `ChartTimelineTests` · `GridLineTests` · `WaveformTimeAxisTests` · `TimelineRenderingTests`(겹 컨트롤·뷰포트) |
 | BPM · 격자 판정 | `IbmscBpmDetectorTests` · `GridFitAdvisorTests` · `GridFitAdviceUiTests` |
 | 자동 저장 · 설정 · 파일 연결 | `AutoSaveAndSettingsTests` · `FileAssociationTests` |

@@ -172,6 +172,7 @@ public partial class MainWindow
             try
             {
                 FileAssociation.Register(exePath);
+                ShellNotify.AssociationsChanged();
             }
             catch (Exception ex)
             {
@@ -194,6 +195,7 @@ public partial class MainWindow
             try
             {
                 FileAssociation.Unregister();
+                ShellNotify.AssociationsChanged();
             }
             catch (Exception ex)
             {

@@ -101,6 +101,21 @@ muse dash bms editer/
    - (이 포크에서 보강) 파이프 이름에 **로그인 세션 번호**를 붙입니다. 뮤텍스는 `Local\` 이라 세션마다 따로인데 파이프는 PC 전체 이름이라, 다른 계정이 먼저 띄우면 이쪽 서버가 만들어지지 않고 예외 루프가 CPU 한 코어를 먹었습니다. 오류 시에는 500ms 쉬었다 다시 엽니다.
    - 창이 구독하기 전에 넘어온 경로는 `App.TakePendingExternalOpen()` 에 맡겨 두고, 시작(복구 질문·실행 인자 열기)이 끝나기 전이나 다른 외부 열기 처리 중에 온 경로는 마지막 하나만 미뤄 두었다가 엽니다. 예전에는 버려지거나 복구 질문과 저장 확인 창이 겹쳤습니다.
 
+9. **업데이트 내성 — 끊긴 파일 연결 자동 복구** ([`FileAssociation.RepairIfStale`](muse%20dash%20bms%20editer/Services/FileAssociation.cs)):
+   - 탐색기 연결은 등록 당시 exe 경로를 그대로 적습니다. 새 버전을 다른 폴더에 풀거나 exe 이름이 바뀌면 더블클릭이 조용히 실패합니다.
+   - 시작할 때(`EnableDesktopServices`, 백그라운드) **등록된 exe 가 디스크에서 사라졌을 때만** 지금 exe 로 다시 적고 `SHCNE_ASSOCCHANGED` 로 탐색기에 알립니다. 등록이 없거나 옛 exe 가 남아 있으면(1번·2번 같이 쓰기) **건드리지 않습니다** — 연결은 사용자의 선택입니다. `dotnet.exe`·`testhost` 로 뜬 경우도 제외합니다.
+10. **되돌리기 메모리 예산** ([`EditHistory`](muse%20dash%20bms%20editer/Services/EditHistory.cs)):
+   - 칸마다 노트를 통째 복제하므로 칸 수(100)만으로는 큰 차트(1만 노트↑, 건반 BMS 다운믹스)에서 수십~100MB 가 묶였습니다. 칸들의 노트 수 합을 `MaxTotalNotes`(60만)로 묶고, 그래도 최소 `MinDepth`(10)칸은 남깁니다.
+11. **재생 키음 몰아 울림 및 오디오 위치 역행 방지** (`MainWindowViewModel.KeySoundWindow`):
+   - 재생 타이머가 늦게 돌면(모달 창·큰 파일 열기로 UI 스레드가 막힘) 그 사이 노트가 한 프레임에 쏟아져 64보이스 상한을 채웠습니다. 최근 0.25초(`MaxKeySoundCatchUpSeconds`)만 울리고, 장치 위치가 뒤로 튀어도 기준(`_lastPlaybackPositionSeconds`)은 앞으로만 갑니다(중복 발음 방지).
+12. **저장 분할 수 상한 넘침 방지** ([`BmsWriter.SplitByResolution`](muse%20dash%20bms%20editer/Services/BmsWriter.cs)):
+   - 한 마디·레인 노트들의 분모 최소공배수가 1920 을 넘으면 예전에는 1920 으로 잘라 반올림했습니다(7분할 줄 + 1/384 노트 → LCM 2688 → 노트가 저장마다 밀림). 이제 상한 안에 드는 노트끼리 한 줄로 묶고 나머지는 같은 마디·채널의 다음 줄로 씁니다. 보통 차트는 묶음이 하나라 출력이 예전과 같습니다.
+13. **장애·버전 오가기 내성 및 임시 파일 청소**:
+   - **설정 앞뒤 호환**: `AppSettings.UnknownFields`(`[JsonExtensionData]`)가 이 버전이 모르는 칸을 그대로 들고 있다가 다시 씁니다. `SchemaVersion` 은 `Math.Max` 로 낮추지 않습니다.
+   - **키음 디코딩 실패 재시도**: 잠긴 WAV 디코딩 실패를 영구 캐시하지 않고 2초 뒤 재시도(`KeySoundPlayer.GetOrLoad`).
+   - **임시 파일 안전 청소**: `SafeFileWriter.CleanStaleTempFiles` 는 `<차트파일명>.<32자리 hex>.tmp` 형식과 정확히 맞고 1시간 넘은 것만 청소, 설정 임시 파일은 1일 지난 것만 정리.
+   - **자동 저장 meta 유실 복구**: `meta.json`이 깨져도 차트가 있으면 `FallbackMeta`로 제목 없음 복구, 차트 없는 빈 폴더는 1일 뒤 정리.
+
 ---
 
 ## 4. 커스텀 에셋 주입 파이프라인 & UID 규칙
@@ -168,9 +183,12 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.2.1 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.5). **테스트 478개 전부 통과** (2026-11-24, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `23c3939` 까지 병합됨(원본의 `muse dash 1` 리네임 커밋은 이 포크 정체성을 유지).
-  - **v0.2.1 주요 보강**: 업데이트 내성 강화(`GameProfileCatalog` 사용자 폴더 `%LocalAppData%\muse dash 2 bms editer\profiles\` 오버라이드 및 `muse_dash_2` 우선 탐색·null JSON 방어·정규식 타임아웃, `BmsParser`/`BmsWriter`/`ChartTimeline` 비정상 BPM·불법 경로·조건 블록 내 주석/확장 태그 보존, `AppSettings`/`AutoSaveStore`/`Program` 파이프 타임아웃·상대 경로 정규화), `ImportKeysoundsFrom` Undo/Dirty/Hold/캐시 동기화 버그 수정, 성능 병목 해결(`ChartTimeline` 균일 BPM O(1) 패스트패스, `NoteGridControl` `AffectsMeasure` 조건부 분리 및 렌더당 축 1회 캡처, `VideoPreviewControl` 지연 WebView2 기동 및 레이스/이중 로드 제거, `KeySoundPlayer` 락프리 보이스 큐·1회 `PrepareHeader`·프리로드 취소 토큰, `WavDecoder` 44.1kHz 16-bit 패스트패스, `OggAudioPlayer` `GCHandle` 누수 방지), 빌드 스크립트 `$PSScriptRoot` 경로 고정 및 `--no-incremental` 클린 빌드 강화, 레거시 `win-x64.pubxml` 제거.
-  - `build_publish.ps1` 로 1번·2번을 새로 빌드해 검증 완료.
+* **현재 버전**: v0.2.2 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.8). **테스트 502개 전부 통과** (2026-11-26, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `2d252a4`(v0.1.8)까지 완벽 병합 및 포크 사양 유지.
+  - **v0.2.2 주요 보강**: 
+    - **업스트림 v0.1.7/v0.1.8 내성/병목/안정화 통합**: 끊긴 파일 연결 시작 시 백그라운드 자동 복구(`FileAssociation.RepairIfStale`) 및 탐색기 알림(`ShellNotify.AssociationsChanged`), 되돌리기 스택 메모리 예산 상한(60만 노트) 적용으로 대용량 차트 메모리 폭증 방지(`EditHistory`), UI 스레드 멈춤 시 키음 몰아 울림 방지(최근 0.25초만) 및 오디오 위치 역행 중복 발음 방지(`MainWindowViewModel.Playback`), 분할 수 최소공배수 1920 초과 시 줄 분할로 노트 타이밍 정확 보존(`BmsWriter.SplitByResolution`), 설정 미인식 필드 앞뒤 버전 호환 보존(`[JsonExtensionData] UnknownFields`) 및 스키마 번호 다운그레이드 방지, 잠긴 WAV 로드 실패 2초 재시도 및 Lazy 보호(`KeySoundPlayer`), 안전 파일 쓰기 시 32자리 hex 임시 파일 정리(`SafeFileWriter.CleanStaleTempFiles`), 자동 저장 `meta.json` 유실 시 `FallbackMeta` 복구 및 방치된 빈 세션 폴더 정리(`AutoSaveStore`).
+    - **뮤즈 대시 2 포크 안정성 추가 강화**: 프로필 정규식 파싱 시 `ArgumentException` 방어(`UidTypeResolver.Resolve`).
+    - **AuditV017Tests(17개) 및 AuditV018Tests(7개) 전수 통과**: 총 502개 단위 테스트 100% 통과.
+  - `build_publish.ps1` 로 1번·2번 패키징 검증 완료.
   ⚠️ 이 PC 에는 아직 뮤즈 대시 2 `note_icons` 가 없어 **1번도 그림 없이** 빌드됩니다(스크립트가 노란 경고를 띄움). 1번 규칙(에셋 100% 내장)은 그림을 넣은 뒤 다시 빌드해야 충족됩니다.
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.
 * **문서를 고칠 때 같이 볼 곳**: 새 서비스/뷰모델을 추가하면 [`docs/architecture/code_explanation.md`](docs/architecture/code_explanation.md) 의 표와 테스트 묶음 표,

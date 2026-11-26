@@ -104,7 +104,11 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
     //
     // 예전에는 "파일 없음"도 null 로 기억해서, 차트를 연 뒤(또는 건반 BMS 가져오기 뒤)
     // 씬 WAV 폴더를 넣어도 앱을 다시 켜기 전까지 그 키음이 영영 안 들렸다(usability_review U-13).
-    // 파일은 있는데 디코딩이 실패한 것은 다시 읽어도 같으므로 그대로 기억한다.
+    //
+    // 파일은 있는데 디코딩이 실패한 것도 **영구히** 기억하지 않는다(v0.1.8). 실패의 흔한 원인이
+    // "다른 프로그램이 쥐고 있음"(DAW 가 다시 내보내는 중, OneDrive·백신이 잠깐 잠금)이라,
+    // 예전에는 그 순간 한 번 실패하면 차트를 다시 열 때까지 그 키음이 안 들렸다.
+    // 대신 없는 파일과 같이 잠깐(MissingRetryMilliseconds) 쉬었다가 다시 읽는다.
     public PcmAudioData? GetOrLoad(string filePath)
     {
         if (_cache.TryGetValue(filePath, out var cached))
@@ -113,7 +117,16 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         if (!File.Exists(filePath))
             return null;
 
-        return _cache.GetOrAdd(filePath, static path => new Lazy<PcmAudioData?>(() => WavDecoder.Decode(path))).Value;
+        var lazy = _cache.GetOrAdd(filePath, static path => new Lazy<PcmAudioData?>(() => WavDecoder.Decode(path)));
+        var value = lazy.Value;
+        if (value is null)
+        {
+            // 같은 Lazy 일 때만 뺀다. 그사이 ClearCache 뒤 새로 들어온 항목을 지우면 안 된다.
+            _cache.TryRemove(KeyValuePair.Create(filePath, lazy));
+            _missingUntil[filePath] = Environment.TickCount64 + MissingRetryMilliseconds;
+        }
+
+        return value;
     }
 
     // 다른 차트를 열 때 이전 곡의 키음 PCM 이 메모리에 남지 않도록 비운다.

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace bms_editer.Services;
 
@@ -10,7 +12,22 @@ namespace bms_editer.Services;
 // 차트 내용은 담지 않는다. 읽지 못해도 기본값으로 돌아갈 뿐이라 예외를 밖으로 내지 않는다.
 public sealed class AppSettings
 {
+    public const int CurrentSchemaVersion = 1;
     public const int MaxRecentFiles = 10;
+
+    private static readonly JsonSerializerOptions ReadOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+    };
+
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true,
+    };
+
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
     public double VerticalZoom { get; set; } = 10.0;
     public double HorizontalZoom { get; set; } = 2.0;
@@ -34,21 +51,15 @@ public sealed class AppSettings
 
     public List<string> RecentFiles { get; set; } = new();
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
+    // 이 버전이 모르는 칸. 새 버전이 적은 설정을 옛 버전으로 되돌려 쓰다 저장해도 지워지지 않게
+    // 읽은 그대로 들고 있다가 다시 쓴다(v0.1.8). 예전에는 버전을 오가면 새 설정이 매번 초기화됐다.
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnknownFields { get; set; }
 
     public static string DefaultPath => Path.Combine(AutoSaveStore.DefaultDataRoot, "settings.json");
 
     public void AddRecentFile(string path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-
         RecentFiles ??= new List<string>();
         RecentFiles.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
         RecentFiles.Insert(0, path);
@@ -57,20 +68,47 @@ public sealed class AppSettings
             RecentFiles.RemoveRange(MaxRecentFiles, RecentFiles.Count - MaxRecentFiles);
     }
 
+    // 손상되거나 구버전/외부 편집으로 비정상 값이 들어와도 앱이 깨지지 않도록 보정한다.
+    public AppSettings Sanitize()
+    {
+        // 새 버전이 적은 파일이면 그 번호를 낮추지 않는다. 다시 새 버전으로 돌아갔을 때 옛 파일로 오해하지 않게.
+        SchemaVersion = Math.Max(SchemaVersion, CurrentSchemaVersion);
+        VerticalZoom = double.IsFinite(VerticalZoom) ? Math.Clamp(VerticalZoom, 1.0, 32.0) : 10.0;
+        HorizontalZoom = double.IsFinite(HorizontalZoom) ? Math.Clamp(HorizontalZoom, 0.5, 8.0) : 2.0;
+        WaveformHorizontalZoom = double.IsFinite(WaveformHorizontalZoom) ? Math.Clamp(WaveformHorizontalZoom, 0.5, 8.0) : 1.0;
+        PlaybackSpeed = double.IsFinite(PlaybackSpeed) ? Math.Clamp(PlaybackSpeed, 0.1, 2.0) : 1.0;
+        KeySoundVolume = double.IsFinite(KeySoundVolume) ? Math.Clamp(KeySoundVolume, 0.0, 2.0) : 1.0;
+        WavPaletteViewModeIndex = Math.Clamp(WavPaletteViewModeIndex, 0, 3);
+
+        if (WindowWidth is { } w && (!double.IsFinite(w) || w < 400 || w > 16000))
+            WindowWidth = null;
+        if (WindowHeight is { } h && (!double.IsFinite(h) || h < 300 || h > 16000))
+            WindowHeight = null;
+
+        RecentFiles = (RecentFiles ?? new List<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxRecentFiles)
+            .ToList();
+
+        return this;
+    }
+
     public static AppSettings Load(string? path = null)
     {
+        var file = path ?? DefaultPath;
+        CleanStaleTempFiles(file);
         try
         {
-            var file = path ?? DefaultPath;
             if (File.Exists(file))
-            {
-                var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(file), JsonOptions) ?? new AppSettings();
-                loaded.RecentFiles ??= new List<string>();
-                loaded.RecentFiles.RemoveAll(string.IsNullOrWhiteSpace);
-                return loaded;
-            }
+                return (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(file), ReadOptions) ?? new AppSettings()).Sanitize();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException)
+        catch (JsonException ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"설정 파싱 실패: {ex.Message}");
+            TryBackupCorruptSettings(file);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             System.Diagnostics.Debug.WriteLine($"설정 읽기 실패: {ex.Message}");
         }
@@ -83,15 +121,15 @@ public sealed class AppSettings
         string? temp = null;
         try
         {
-            var file = Path.GetFullPath(path ?? DefaultPath);
-            var directory = Path.GetDirectoryName(file);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
+            var file = path ?? DefaultPath;
+            var dir = Path.GetDirectoryName(file);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
 
-            temp = $"{file}.{Guid.NewGuid().ToString("N")[..8]}.tmp";
-            var json = JsonSerializer.Serialize(this, JsonOptions);
-            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            using (var writer = new StreamWriter(stream, System.Text.Encoding.UTF8))
+            temp = $"{file}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+            var json = JsonSerializer.Serialize(this, WriteOptions);
+            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream))
             {
                 writer.Write(json);
                 writer.Flush();
@@ -101,7 +139,7 @@ public sealed class AppSettings
             File.Move(temp, file, overwrite: true);
             temp = null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             System.Diagnostics.Debug.WriteLine($"설정 저장 실패: {ex.Message}");
         }
@@ -112,6 +150,49 @@ public sealed class AppSettings
                 try { File.Delete(temp); }
                 catch { /* 임시 파일 정리 실패 무시 */ }
             }
+        }
+    }
+
+    // 저장 도중 전원이 나가면 settings.json.<pid>.<guid>.tmp 가 남는다. 하루 지난 것만 치운다
+    // (지금 다른 창이 쓰는 중인 임시 파일을 건드리지 않도록).
+    public static void CleanStaleTempFiles(string file, TimeSpan? olderThan = null)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(file);
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+                return;
+
+            var cutoff = DateTime.UtcNow - (olderThan ?? TimeSpan.FromDays(1));
+            foreach (var temp in Directory.EnumerateFiles(dir, Path.GetFileName(file) + ".*.tmp"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(temp) < cutoff)
+                        File.Delete(temp);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 다음 파일로
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            System.Diagnostics.Debug.WriteLine($"설정 임시 파일 정리 실패: {ex.Message}");
+        }
+    }
+
+    private static void TryBackupCorruptSettings(string file)
+    {
+        try
+        {
+            if (File.Exists(file))
+                File.Copy(file, file + ".corrupt.bak", overwrite: true);
+        }
+        catch
+        {
+            // 백업 실패는 무시하고 기본 설정으로 복귀
         }
     }
 }

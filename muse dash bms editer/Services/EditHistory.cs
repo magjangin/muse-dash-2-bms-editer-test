@@ -33,6 +33,15 @@ public sealed class EditHistory
     // 100칸이면 실측 규모에서 10MB 안쪽이고, 그보다 더 거슬러 올라갈 일은 파일을 다시 여는 쪽이 낫다.
     public const int MaxDepth = 100;
 
+    // 칸 수만으로는 큰 차트에서 메모리가 묶이지 않는다. 노트 1만 개짜리 차트는 100칸이면
+    // 복제 노트 100만 개(수십~100MB)가 되고, 건반 BMS 를 접은 차트는 그보다 크다.
+    // 되돌리기 칸 전체에 담긴 노트 수(문서 통째 스냅샷의 노트 포함)를 이 안으로 묶는다.
+    // 단 MinDepth 칸까지는 예산을 넘어도 남긴다. 큰 차트에서 되돌리기가 한두 칸만 되면 쓸모가 없다.
+    public const int MaxTotalNotes = 600_000;
+    public const int MinDepth = 10;
+
+    private long _undoNoteTotal;
+
     private readonly List<EditSnapshot> _undo = new();
     private readonly List<EditSnapshot> _redo = new();
 
@@ -41,6 +50,11 @@ public sealed class EditHistory
     public bool CanUndo => _undo.Count > 0;
 
     public bool CanRedo => _redo.Count > 0;
+
+    // 되돌리기 칸에 쌓인 노트 수(테스트·진단용).
+    public long UndoNoteTotal => _undoNoteTotal;
+
+    public int UndoDepth => _undo.Count;
 
     // 되돌리면 취소되는 작업의 이름. 지금 상태를 만든 작업이다.
     public string? UndoLabel => CanUndo ? Baseline?.Label : null;
@@ -70,19 +84,31 @@ public sealed class EditHistory
     public void Reset(EditSnapshot current)
     {
         _undo.Clear();
+        _undoNoteTotal = 0;
         _redo.Clear();
         Baseline = current;
+    }
+
+    internal static long WeightOf(EditSnapshot snapshot) =>
+        snapshot.Notes.Count + (snapshot.Document?.Notes.Count ?? 0) + 1;
+
+    private void PushUndo(EditSnapshot snapshot)
+    {
+        _undo.Add(snapshot);
+        _undoNoteTotal += WeightOf(snapshot);
+
+        while (_undo.Count > MaxDepth || (_undo.Count > MinDepth && _undoNoteTotal > MaxTotalNotes))
+        {
+            _undoNoteTotal -= WeightOf(_undo[0]);
+            _undo.RemoveAt(0);
+        }
     }
 
     // 편집이 끝났다. next 는 편집 **후**의 상태다.
     public void Record(EditSnapshot next)
     {
         if (Baseline is { } previous)
-        {
-            _undo.Add(previous);
-            if (_undo.Count > MaxDepth)
-                _undo.RemoveAt(0);
-        }
+            PushUndo(previous);
 
         // 새로 편집했으면 다시 할 미래는 사라진다.
         _redo.Clear();
@@ -102,6 +128,7 @@ public sealed class EditHistory
 
         var target = _undo[^1];
         _undo.RemoveAt(_undo.Count - 1);
+        _undoNoteTotal -= WeightOf(target);
 
         if (Baseline is { } current)
             _redo.Add(current);
@@ -119,11 +146,7 @@ public sealed class EditHistory
         _redo.RemoveAt(_redo.Count - 1);
 
         if (Baseline is { } current)
-        {
-            _undo.Add(current);
-            if (_undo.Count > MaxDepth)
-                _undo.RemoveAt(0);
-        }
+            PushUndo(current);
 
         Baseline = target;
         return target;
