@@ -313,7 +313,11 @@ public static class BmsWriter
 
         foreach (var note in notes)
         {
-            var index = Math.Clamp((int)Math.Round(note.Position * resolution), 0, resolution - 1);
+            if (!double.IsFinite(note.Position))
+                continue;
+
+            var pos = Math.Clamp(note.Position, 0.0, 1.0);
+            var index = Math.Clamp((int)Math.Round(pos * resolution), 0, resolution - 1);
             var code = note.WavKey;
             var formatted = code.Length >= keyWidth ? code.Substring(0, keyWidth) : code.PadLeft(keyWidth, '0');
 

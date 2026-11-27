@@ -60,7 +60,8 @@ public static class HoldPairingEngine
             foreach (var group in groups)
             {
                 var ordered = group
-                    .OrderBy(m => m.Time)
+                    .OrderBy(m => m.Note.Measure)
+                    .ThenBy(m => m.Note.Position)
                     .ThenBy(m => TieRank(rule, m))
                     .ThenBy(m => m.Index)
                     .ToList();

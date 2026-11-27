@@ -183,16 +183,18 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.2.3 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.9). **테스트 510개 전부 통과** (2026-11-27, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `6018f7f`(v0.1.9)까지 완벽 병합 및 포크 사양 유지.
-  - **v0.2.3 주요 보강**: 
-    - **업스트림 v0.1.9 내성/병목/안정화 통합**: 
-      - 파일 잠금(Sharing Violation) 및 백신·동기화(OneDrive) 충돌 방어: `SafeFileWriter`, `AppSettings`, `AutoSaveStore`에 `EnsureNotReadOnly` 및 3회 지수 백오프 재시도(`MoveWithRetry`, `SafeCopy`) 탑재.
-      - 타임라인 연산 병목 제거: `ChartTimeline` 생성 시 `BpmChange` 위치를 0.0~1.0으로 사전 정규화하여 렌더링 핫패스(`SecondsAt`, `MeasurePositionAt`, `EnsureBoundary`) 내의 반복 `Math.Clamp` 제거 및 경계값(`FindMeasureContaining`) 안전 탐색.
-      - 그리드 렌더링 최적화: `NoteGridControl`에서 인스턴스 내 노트/레인 변경 감지를 위한 카운트 기반 캐시 검증 추가 및 부동소수점 덧셈 비교를 대체하는 정수 마디 우선 비교 정렬(`Array.Sort`).
-      - BMS 헤더 및 시간 무결성: `#BMSEDITER_OFFSET`의 `double.IsFinite` 검증 및 `ToDenominator` 음수/NaN 가드.
-      - WAV 디코딩 언더플로 방어: `WavDecoder` remaining 바이트 `Math.Max(0, safeChunkSize - readBytes)`.
-    - **뮤즈 대시 2 포크 안정성 추가 강화**: `AutoSaveStore.PruneOldest` 및 `CrashLog.TrimOldLogs`에서 오래된 ReadOnly 파일 안전 정리 지원.
-    - **AuditV019Tests(8개) 포함 총 510개 단위 테스트 100% 통과**.
+* **현재 버전**: v0.2.4 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.9). **테스트 517개 전부 통과** (2026-11-27, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `6018f7f`(v0.1.9)까지 완벽 병합 및 포크 사양 유지.
+  - **v0.2.4 주요 보강**: 
+    - **심층 추론 감사 9대 취약점 전면 보강**:
+      - 오디오 디코딩/BPM 분석 안전성: `WavDecoder` 채널 0 및 샘플 레이트 0 시 0 나누기 방어, `IbmscBpmDetector` 비정상 채널 시 `DivideByZeroException` 방어, `PreciseBpmDetector`에서 손상된 오디오 스트림 프레임 길이 불일치로 인한 `IndexOutOfRangeException` 원천 차단.
+      - 키사운드 오디오 디바이스 자동 복구: `KeySoundPlayer`에서 이어폰 탈착(Hotplug) 및 시스템 절전/복귀 시 `WaveOutWrite` 오류를 감지하여 자동으로 핸들을 리셋 및 재연결.
+      - 건반 BMS 다운믹스 복원력: `DownmixEngine`에서 표준 매핑 외 미지의 채널 번호가 유입되어도 `KeyNotFoundException` 없이 `Alternating` 레인으로 안전 자동 폴백.
+      - 건반 차트 무결성 가드: `KeyboardChartReader`에서 비정상 `Infinity` BPM 방어 및 `BmsParser.MaxMeasureNumber`(9999) 초과 악의적 마디 라인 스킵.
+      - 차트 작성 안정성: `BmsWriter`에서 `double.IsFinite(Position)` 및 `Math.Clamp(0.0, 1.0)` 검증으로 비정상 슬롯 배치 방지.
+      - 검색 창 크래시 방어: `NoteSearchViewModel` 씬 번호 파싱 시 비정상 텍스트에 대한 `int.TryParse` 안전 파싱.
+      - 홀드 짝 계산 성능/일관성: `HoldPairingEngine`에서 부동소수점 덧셈 비교 대신 정수 마디 우선 비교 정렬 적용으로 일관된 짝짓기 보장.
+      - 포맷 텍스트 캐시 상한: `NoteGridControl` 레인 헤더 텍스트 캐시 최대 100개 상한 관리로 메모리 누수 방지.
+    - **AuditV020Tests(7개) 포함 총 517개 단위 테스트 100% 통과**.
   - `build_publish.ps1` 로 1번·2번 패키징 검증 완료.
   ⚠️ 이 PC 에는 아직 뮤즈 대시 2 `note_icons` 가 없어 **1번도 그림 없이** 빌드됩니다(스크립트가 노란 경고를 띄움). 1번 규칙(에셋 100% 내장)은 그림을 넣은 뒤 다시 빌드해야 충족됩니다.
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.

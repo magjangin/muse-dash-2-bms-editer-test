@@ -323,6 +323,9 @@ public sealed class NoteGridControl : TimelineControlBase
     {
         if (!_laneHeaderFormattedTextCache.TryGetValue(header, out var text))
         {
+            if (_laneHeaderFormattedTextCache.Count > 100)
+                _laneHeaderFormattedTextCache.Clear();
+
             text = new FormattedText(
                 header,
                 System.Globalization.CultureInfo.CurrentCulture,

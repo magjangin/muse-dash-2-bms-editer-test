@@ -188,7 +188,7 @@ public static class WavDecoder
     private static float[]? ExtractFrames(byte[] data, short format, short channels, short bitsPerSample)
     {
         var bytesPerSample = bitsPerSample / 8;
-        if (bytesPerSample <= 0) return null;
+        if (bytesPerSample <= 0 || channels <= 0) return null;
 
         var totalSamples = data.Length / bytesPerSample;
         var frames = totalSamples / channels;
@@ -256,6 +256,8 @@ public static class WavDecoder
 
     private static short[] ResampleToStereo44100(float[] source, int sourceChannels, int sourceSampleRate)
     {
+        if (sourceChannels <= 0 || sourceSampleRate <= 0) return Array.Empty<short>();
+
         var sourceFrames = source.Length / sourceChannels;
         if (sourceFrames == 0) return Array.Empty<short>();
 

@@ -92,7 +92,7 @@ public static class KeyboardChartReader
                     title = value;
                     break;
                 case "BPM":
-                    if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && parsed > 0)
+                    if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && double.IsFinite(parsed) && parsed > 0)
                         bpm = parsed;
                     break;
             }
@@ -117,7 +117,8 @@ public static class KeyboardChartReader
         {
             var match = DataLine.Match(lines[i].Trim());
             if (!match.Success
-                || !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var measure))
+                || !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var measure)
+                || measure < 0 || measure > BmsParser.MaxMeasureNumber)
             {
                 continue;
             }

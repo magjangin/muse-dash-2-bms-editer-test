@@ -75,8 +75,8 @@ public sealed partial class NoteSearchViewModel : OwnerObservingViewModel
         var scenes = new SortedSet<int>(SceneUid.KnownScenes);
         foreach (var wav in Owner.WavList)
         {
-            if (SceneUid.SceneOf(SceneWavResolver.TextOf(wav)) is { } zz)
-                scenes.Add(int.Parse(zz));
+            if (SceneUid.SceneOf(SceneWavResolver.TextOf(wav)) is { } zz && int.TryParse(zz, out var parsedScene))
+                scenes.Add(parsedScene);
         }
 
         return scenes.Select(n => new SceneChoice(n)).ToArray();

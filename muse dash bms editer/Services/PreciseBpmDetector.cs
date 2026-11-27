@@ -115,9 +115,18 @@ public static class PreciseBpmDetector
     public static float[] BuildOnsetCurve(OggAudioData data)
     {
         var channels = Math.Max(1, data.Channels);
-        var frames = data.FrameCount;
         var sampleRate = data.SampleRate;
-        if (frames <= 0 || sampleRate <= 0)
+        if (sampleRate <= 0)
+            return [];
+
+        var pcm = data.Pcm16;
+        var stride = channels * sizeof(short);
+        if (stride <= 0 || pcm.Length < stride)
+            return [];
+
+        var availableFrames = pcm.Length / stride;
+        var frames = Math.Min(data.FrameCount, availableFrames);
+        if (frames <= 0)
             return [];
 
         var hop = Math.Max(1, (int)Math.Round(sampleRate * HopSeconds));
@@ -126,8 +135,6 @@ public static class PreciseBpmDetector
             return [];
 
         var mono = new float[count * hop];
-        var pcm = data.Pcm16;
-        var stride = channels * sizeof(short);
         for (var i = 0; i < mono.Length; i++)
         {
             var sum = 0;

@@ -190,7 +190,7 @@ xUnit + Avalonia Headless 입니다. 헤드리스 창은 디스패처 스레드 
 
 | 묶음 | 파일 |
 | :--- | :--- |
-| 파일 왕복 · 저장 안전 · 내성 | `BmsRoundTripTests` · `RoundTripCleanlinessTests` · `SaveIntegrityTests`(조건 블록 포함) · `EncodingDetectionTests` · `AudioOffsetTests` · `ResilienceAndPerformanceTests` · `AuditV017Tests` · `AuditV018Tests` · `AuditV019Tests` |
+| 파일 왕복 · 저장 안전 · 내성 | `BmsRoundTripTests` · `RoundTripCleanlinessTests` · `SaveIntegrityTests`(조건 블록 포함) · `EncodingDetectionTests` · `AudioOffsetTests` · `ResilienceAndPerformanceTests` · `AuditV017Tests` · `AuditV018Tests` · `AuditV019Tests` · `AuditV020Tests` |
 | 시간축 · 격자 · 파형 | `ChartTimelineTests` · `GridLineTests` · `WaveformTimeAxisTests` · `TimelineRenderingTests`(겹 컨트롤·뷰포트) |
 | BPM · 격자 판정 | `IbmscBpmDetectorTests` · `GridFitAdvisorTests` · `GridFitAdviceUiTests` |
 | 자동 저장 · 설정 · 파일 연결 | `AutoSaveAndSettingsTests` · `FileAssociationTests` |

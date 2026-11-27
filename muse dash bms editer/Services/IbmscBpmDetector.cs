@@ -155,6 +155,9 @@ public static class IbmscBpmDetector
     // 배열을 channels 채널 인터리브로 보고 채널마다 따로 거른다. 꼬리의 남는 표본(길이 % channels)은 건드리지 않는다.
     private static void ApplyAccordFilters(float[] array, int channels, float sampleRate)
     {
+        if (channels <= 0 || sampleRate <= 0)
+            return;
+
         var perChannel = array.Length / channels;
         if (perChannel <= 0)
             return;

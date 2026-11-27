@@ -407,7 +407,13 @@ public sealed unsafe partial class KeySoundPlayer : IDisposable
         // 헤더는 EnsureWaveOutOpen 에서 1회 Prepare 되었으므로 그대로 재사용한다.
         hdr->BytesRecorded = 0;
         hdr->Flags &= ~WHDR_DONE;
-        WaveOutWrite(_waveOut, _headerPtrs[currentBufferIndex], sizeof(WaveHeader));
+        var writeRes = WaveOutWrite(_waveOut, _headerPtrs[currentBufferIndex], sizeof(WaveHeader));
+        if (writeRes != 0)
+        {
+            // 장치 분리(이어폰 탈착) 또는 절전 모드 복귀 시 드라이버 오류 발생하면 핸들 닫고 리셋
+            CloseWaveOut();
+            return;
+        }
 
         currentBufferIndex = (currentBufferIndex + 1) % BufferCount;
     }
