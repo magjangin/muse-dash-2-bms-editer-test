@@ -62,7 +62,16 @@ public static class CrashLog
         Array.Sort(files, StringComparer.Ordinal);
         for (var i = 0; i < files.Length - MaxLogFiles; i++)
         {
-            try { File.Delete(files[i]); }
+            try
+            {
+                if (File.Exists(files[i]))
+                {
+                    var attr = File.GetAttributes(files[i]);
+                    if ((attr & FileAttributes.ReadOnly) != 0)
+                        File.SetAttributes(files[i], attr & ~FileAttributes.ReadOnly);
+                    File.Delete(files[i]);
+                }
+            }
             catch (Exception) { /* 다음 파일로 */ }
         }
     }

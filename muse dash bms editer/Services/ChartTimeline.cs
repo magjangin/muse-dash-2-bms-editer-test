@@ -40,7 +40,8 @@ public sealed class ChartTimeline
         _bpmAtMeasureStart = new List<double> { _baseBpm };
 
         _changesByMeasure = bpmChanges
-            .Where(c => double.IsFinite(c.Bpm) && c.Bpm > 0)
+            .Where(c => double.IsFinite(c.Bpm) && c.Bpm > 0 && double.IsFinite(c.Position))
+            .Select(c => new BpmChange(c.Measure, Math.Clamp(c.Position, 0.0, 1.0), c.Bpm))
             .GroupBy(c => c.Measure)
             .ToDictionary(g => g.Key, g => g.OrderBy(c => c.Position).ToList());
 
@@ -88,7 +89,7 @@ public sealed class ChartTimeline
         {
             foreach (var change in changes)
             {
-                var at = Math.Clamp(change.Position, 0.0, 1.0);
+                var at = change.Position;
                 if (at >= position)
                     break;
 
@@ -125,7 +126,7 @@ public sealed class ChartTimeline
         {
             foreach (var change in changes)
             {
-                var at = Math.Clamp(change.Position, 0.0, 1.0);
+                var at = change.Position;
                 if (at > cursor)
                 {
                     var span = SpanSeconds(measure, at - cursor, bpm);
@@ -161,6 +162,9 @@ public sealed class ChartTimeline
             known = Math.Min(MaxMeasure, Math.Max(16, known * 2));
             EnsureBoundary(known);
         }
+
+        if (known <= 0 || _measureStartSeconds[0] >= seconds)
+            return 0;
 
         var low = 1;
         var high = known;
@@ -202,7 +206,7 @@ public sealed class ChartTimeline
             {
                 foreach (var change in changes)
                 {
-                    var at = Math.Clamp(change.Position, 0.0, 1.0);
+                    var at = change.Position;
                     if (at > cursor)
                     {
                         start += SpanSeconds(previous, at - cursor, bpm);

@@ -183,11 +183,16 @@ muse dash bms editer/
 
 ## 7. 검증 현황 & 문서 점검 체크리스트
 
-* **현재 버전**: v0.2.2 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.8). **테스트 502개 전부 통과** (2026-11-26, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `2d252a4`(v0.1.8)까지 완벽 병합 및 포크 사양 유지.
-  - **v0.2.2 주요 보강**: 
-    - **업스트림 v0.1.7/v0.1.8 내성/병목/안정화 통합**: 끊긴 파일 연결 시작 시 백그라운드 자동 복구(`FileAssociation.RepairIfStale`) 및 탐색기 알림(`ShellNotify.AssociationsChanged`), 되돌리기 스택 메모리 예산 상한(60만 노트) 적용으로 대용량 차트 메모리 폭증 방지(`EditHistory`), UI 스레드 멈춤 시 키음 몰아 울림 방지(최근 0.25초만) 및 오디오 위치 역행 중복 발음 방지(`MainWindowViewModel.Playback`), 분할 수 최소공배수 1920 초과 시 줄 분할로 노트 타이밍 정확 보존(`BmsWriter.SplitByResolution`), 설정 미인식 필드 앞뒤 버전 호환 보존(`[JsonExtensionData] UnknownFields`) 및 스키마 번호 다운그레이드 방지, 잠긴 WAV 로드 실패 2초 재시도 및 Lazy 보호(`KeySoundPlayer`), 안전 파일 쓰기 시 32자리 hex 임시 파일 정리(`SafeFileWriter.CleanStaleTempFiles`), 자동 저장 `meta.json` 유실 시 `FallbackMeta` 복구 및 방치된 빈 세션 폴더 정리(`AutoSaveStore`).
-    - **뮤즈 대시 2 포크 안정성 추가 강화**: 프로필 정규식 파싱 시 `ArgumentException` 방어(`UidTypeResolver.Resolve`).
-    - **AuditV017Tests(17개) 및 AuditV018Tests(7개) 전수 통과**: 총 502개 단위 테스트 100% 통과.
+* **현재 버전**: v0.2.3 (`.csproj` 의 `Version`, 원본 뮤즈 대시 1 에디터는 v0.1.9). **테스트 510개 전부 통과** (2026-11-27, `dotnet test "muse dash bms editer.slnx"`). 원본은 `upstream/main` `6018f7f`(v0.1.9)까지 완벽 병합 및 포크 사양 유지.
+  - **v0.2.3 주요 보강**: 
+    - **업스트림 v0.1.9 내성/병목/안정화 통합**: 
+      - 파일 잠금(Sharing Violation) 및 백신·동기화(OneDrive) 충돌 방어: `SafeFileWriter`, `AppSettings`, `AutoSaveStore`에 `EnsureNotReadOnly` 및 3회 지수 백오프 재시도(`MoveWithRetry`, `SafeCopy`) 탑재.
+      - 타임라인 연산 병목 제거: `ChartTimeline` 생성 시 `BpmChange` 위치를 0.0~1.0으로 사전 정규화하여 렌더링 핫패스(`SecondsAt`, `MeasurePositionAt`, `EnsureBoundary`) 내의 반복 `Math.Clamp` 제거 및 경계값(`FindMeasureContaining`) 안전 탐색.
+      - 그리드 렌더링 최적화: `NoteGridControl`에서 인스턴스 내 노트/레인 변경 감지를 위한 카운트 기반 캐시 검증 추가 및 부동소수점 덧셈 비교를 대체하는 정수 마디 우선 비교 정렬(`Array.Sort`).
+      - BMS 헤더 및 시간 무결성: `#BMSEDITER_OFFSET`의 `double.IsFinite` 검증 및 `ToDenominator` 음수/NaN 가드.
+      - WAV 디코딩 언더플로 방어: `WavDecoder` remaining 바이트 `Math.Max(0, safeChunkSize - readBytes)`.
+    - **뮤즈 대시 2 포크 안정성 추가 강화**: `AutoSaveStore.PruneOldest` 및 `CrashLog.TrimOldLogs`에서 오래된 ReadOnly 파일 안전 정리 지원.
+    - **AuditV019Tests(8개) 포함 총 510개 단위 테스트 100% 통과**.
   - `build_publish.ps1` 로 1번·2번 패키징 검증 완료.
   ⚠️ 이 PC 에는 아직 뮤즈 대시 2 `note_icons` 가 없어 **1번도 그림 없이** 빌드됩니다(스크립트가 노란 경고를 띄움). 1번 규칙(에셋 100% 내장)은 그림을 넣은 뒤 다시 빌드해야 충족됩니다.
   일부 "실제 차트" 테스트는 개발 PC 의 게임 폴더를 읽고, 없으면 통과로 끝납니다.

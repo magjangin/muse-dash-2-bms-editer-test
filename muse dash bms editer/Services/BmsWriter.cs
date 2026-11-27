@@ -340,6 +340,9 @@ public static class BmsWriter
 
     private static int ToDenominator(double value, int maxDenominator)
     {
+        if (!double.IsFinite(value) || value <= 0)
+            return 1;
+
         value -= Math.Floor(value);
         if (value <= 1e-9)
             return 1;
